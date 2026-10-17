@@ -1,35 +1,41 @@
 package org.firstinspires.ftc.teamcode.Base.Subsystems;
 
-import com.bylazar.configurables.annotations.Configurable;
+//import com.bylazar.configurables.annotations.Configurable;
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.teamcode.Base.HardwareDevices.ComplexMotor;
 import org.firstinspires.ftc.teamcode.Base.HardwareDevices.ComplexServo;
 import org.firstinspires.ftc.teamcode.Base.HardwareTable;
 import org.firstinspires.ftc.teamcode.Base.Parameters;
 
-@Configurable
+//@Configurable
+@Config
 public class ShooterSubsystem {
     private ComplexMotor shooterMotor1;
     private ComplexMotor shooterMotor2;
     private ComplexServo gateServo;
     private double motorVelocity = 0;
     private boolean gateOpen = false;
+    private boolean poweredOn = false;
 
-    public static double transferP = 0.003;
+    public static double transferP = 0.0003;
     public static double transferI = 0;
     public static double transferD = 0;
-    public static double transferF = 0.0005;
+    public static double transferF = 0.00027;
 
     public void initialize(HardwareMap hardwareMap, HardwareTable hardwareTable) {
         shooterMotor1 = hardwareTable.createMotor("shooterMotor1");
         shooterMotor1.setReversed(true);
-        shooterMotor1.enableBrake();
+        shooterMotor1.enableEncoderDrive();
+        shooterMotor1.enableFloat();
 
         shooterMotor2 = hardwareTable.createMotor("shooterMotor2");
         shooterMotor2.setReversed(!shooterMotor1.isReversed());
-        shooterMotor2.enableBrake();
+        shooterMotor2.enableEncoderDrive();
+        shooterMotor2.enableFloat();
 
         shooterMotor1.setLinkedMotor(shooterMotor2);
         shooterMotor1.resetEncoder();
@@ -42,6 +48,14 @@ public class ShooterSubsystem {
                 AngleUnit.DEGREES
         );
         gateServo.setInverted(false);
+    }
+
+    public double getMotor1Current() {
+        return shooterMotor1.getCurrent();
+    }
+
+    public double getMotor2Current() {
+        return shooterMotor2.getCurrent();
     }
 
     public void setTargetVelocity(double velocity) {
@@ -58,9 +72,9 @@ public class ShooterSubsystem {
 
     public void update() {
         if (gateOpen) {
-            gateServo.setPosition(Parameters.GATE_OPEN_POSITION);
+            gateServo.turnToAngle(Parameters.GATE_OPEN_POSITION);
         } else {
-            gateServo.setPosition(Parameters.GATE_CLOSED_POSITION);
+            gateServo.turnToAngle(Parameters.GATE_CLOSED_POSITION);
         }
 
         shooterMotor1.setVelocityPIDFCoefficients(
@@ -70,7 +84,11 @@ public class ShooterSubsystem {
                 transferF
         );
 
-        shooterMotor1.setPower(Parameters.SHOOTER_VELOCITY);
+        if (poweredOn) {
+            shooterMotor1.setVelocity(Parameters.SHOOTER_VELOCITY);
+        } else {
+            shooterMotor1.setPower(0);
+        }
 
         shooterMotor1.update();
         shooterMotor2.update();
@@ -86,5 +104,21 @@ public class ShooterSubsystem {
 
     public void closeGate() {
         gateOpen = false;
+    }
+
+    public void powerOff() {
+        poweredOn = false;
+    }
+
+    public void powerOn() {
+        poweredOn = true;
+    }
+
+    public void togglePowered() {
+        poweredOn = !poweredOn;
+    }
+
+    public boolean isPoweredOn() {
+        return poweredOn;
     }
 }

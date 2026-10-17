@@ -37,6 +37,8 @@ public class ComplexMotor extends HardwareDevice {
     private ComplexVoltageSensor vSensor = null;
     private ComplexMotor childMotor = null;
     private double currentLimit = 0;
+    private double current = 0;
+    private boolean updateCurrent = true;
     private CurrentUnit currentLimitUnit = CurrentUnit.AMPS;
     private String deviceName = null;
     private boolean motorReversed = false;
@@ -150,12 +152,18 @@ public class ComplexMotor extends HardwareDevice {
         lastMotorPower = motorPower;
         lastMotorVelocity = motorVelocity;
         lastMotorTickPosition = currentMotorTickPosition;
+        updateCurrent = true;
 
         loopTimer.reset();
     }
 
     public double getCurrent() {
-        return motorInterface.getCurrent(CurrentUnit.AMPS);
+        if (updateCurrent) {
+            current = motorInterface.getCurrent(CurrentUnit.AMPS);
+            updateCurrent = false;
+        }
+
+        return current;
     }
 
     public void setPower(double power) {

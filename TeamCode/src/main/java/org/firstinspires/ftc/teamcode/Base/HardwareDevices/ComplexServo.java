@@ -55,7 +55,7 @@ public class ComplexServo extends HardwareDevice {
     public void setPosition(double position, boolean force) {
         position = Range.clip((positionMultiplier * position) + calculateAngleToServoRawPosition(positionOffset, AngleUnit.RADIANS), 0.0, 1.0);
 
-        if (force || position != lastPosition) {
+        if (lastPosition != position || force) {
             servo.setPosition(position);
         }
 
@@ -63,7 +63,7 @@ public class ComplexServo extends HardwareDevice {
     }
 
     public void setPosition(double position) {
-        setPosition(position, false);
+        setPosition(position, true);
     }
 
     public void setPositionMultiplier(double positionMultiplier) {

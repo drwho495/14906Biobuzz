@@ -4,8 +4,7 @@ import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.ManualDrive;
 import com.pedropathing.math.Pose;
-import com.pedropathing.revhub.localizers.PinpointLocalizer;
-import com.pedropathing.utils.Angle;
+import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -15,6 +14,7 @@ import org.firstinspires.ftc.teamcode.Base.Subsystems.IntakeSubsystem;
 import org.firstinspires.ftc.teamcode.Base.Subsystems.ShooterSubsystem;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class RobotManager {
@@ -22,6 +22,7 @@ public class RobotManager {
     private IntakeSubsystem intake = new IntakeSubsystem();
     private ShooterSubsystem shooter = new ShooterSubsystem();
     private Follower follower;
+    private ElapsedTime cacheResetTimer = new ElapsedTime();
     private ElapsedTime transferCycleTimer = new ElapsedTime();
     private boolean isTransfering = false;
     private double manualIntakePower = 0;
@@ -29,8 +30,16 @@ public class RobotManager {
     private boolean autoTransferPollenDuringScoreCycle = true;
     private boolean teleopDriveActive = false;
     private boolean headingLockEnabled = false;
+    private boolean scoreWaitForShooterVelocity = false;
+    private boolean scoreWaitForHeadingLock = false;
+    private boolean transferCycleTimerEnabled = false;
+    private boolean isTransferOvercurrent = false;
+    private boolean stopTransferIfOvercurrent = true;
+    private ElapsedTime transferOvercurrentTimer = new ElapsedTime();
+    private double headingLockAngle = 0;
     private double driverAngleOffset = 0;
     private Alliance robotAlliance = Alliance.RED;
+    private List<LynxModule> lynxModules;
 
     public void initialize(HardwareMap hardwareMap) {
         hardwareTable = new HardwareTable(hardwareMap);
@@ -43,11 +52,17 @@ public class RobotManager {
 
         shooter.initialize(hardwareMap, hardwareTable);
         intake.initialize(hardwareMap, hardwareTable);
+
+        lynxModules = hardwareMap.getAll(LynxModule.class);
+
+        for (LynxModule module : lynxModules) {
+            module.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
+        }
     }
 
     public void update() {
         if (scoreElementsCycleEnabled) {
-            if (shooter.ready() && !isTransfering) {
+            if (canShoot() && !isTransfering) {
                 isTransfering = true;
 
                 transferCycleTimer.reset();
@@ -57,11 +72,8 @@ public class RobotManager {
 
             if (isTransfering) {
                 if (autoTransferPollenDuringScoreCycle) {
-                    if (transferCycleTimer.time(TimeUnit.MILLISECONDS) >= Parameters.SHOOTER_TRANSFER_TIME) {
-                        intake.setFrontRollersPower(manualIntakePower);
-                        intake.setTransferRollersPower(manualIntakePower);
-
-                        stopScoringElements();
+                    if (transferCycleTimerEnabled && transferCycleTimer.time(TimeUnit.MILLISECONDS) >= Parameters.SHOOTER_TRANSFER_TIME) {
+                        stopScoringCycle();
                     }
                 } else {
                     intake.setTransferRollersPower(manualIntakePower);
@@ -69,10 +81,37 @@ public class RobotManager {
             }
         } else {
             intake.setFrontRollersPower(manualIntakePower);
-            intake.setTransferRollersPower(manualIntakePower);
+
+            if (manualIntakePower < 0) {
+                isTransferOvercurrent = false;
+            }
+
+            if (isTransferOvercurrent) {
+                intake.setTransferRollersPower(0);
+            } else {
+                intake.setTransferRollersPower(manualIntakePower);
+
+                if (stopTransferIfOvercurrent) {
+                    if (intake.isTransferOvercurrent()) {
+                        if (transferOvercurrentTimer.time(TimeUnit.MILLISECONDS) >= 750) {
+                            isTransferOvercurrent = true;
+                        }
+                    } else {
+                        transferOvercurrentTimer.reset();
+                    }
+                }
+            }
         }
 
         shooter.setTargetVelocity(Parameters.SHOOTER_VELOCITY);
+
+        if (cacheResetTimer.time(TimeUnit.MILLISECONDS) >= 5) {
+            for (LynxModule module : lynxModules) {
+                module.clearBulkCache();
+            }
+
+            cacheResetTimer.reset();
+        }
 
         follower.update();
         shooter.update();
@@ -85,6 +124,33 @@ public class RobotManager {
         if (cacheAllianceValue) {
             StaticStorage.storedAlliance = alliance;
         }
+    }
+
+    public boolean canShoot() {
+        if (scoreWaitForShooterVelocity && !shooter.ready()) {
+            return false;
+        }
+
+        if (scoreWaitForHeadingLock && headingLockEnabled && getHeadingLockError() > Parameters.ACCEPTABLE_HEADING_LOCK_ERROR) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public void enableTransferEcoMode() {
+        stopTransferIfOvercurrent = true;
+        transferOvercurrentTimer.reset();
+        isTransferOvercurrent = false;
+    }
+
+    public void disableTransferEcoMode() {
+        stopTransferIfOvercurrent = false;
+    }
+
+    public void resetTransferOvercurrentFlag() {
+        isTransferOvercurrent = false;
+        transferOvercurrentTimer.reset();
     }
 
     public void setAlliance(Alliance alliance) {
@@ -119,31 +185,33 @@ public class RobotManager {
         double fieldCentricHeading = 0;
 
         if (fieldCentric) {
-            fieldCentricHeading = follower.pose().heading();
+            fieldCentricHeading = follower.pose().heading() - driverAngleOffset;
         }
 
         DrivePowers drivePowers = ManualDrive.fieldCentric(
                 y,
                 x,
                 heading,
-                fieldCentricHeading + driverAngleOffset
+                fieldCentricHeading
         );
 
         if (headingLockEnabled) {
-            ManualDrive.headingLock(
+            headingLockAngle = getAngleToGoal();
+
+            drivePowers = ManualDrive.headingLock(
                     follower,
                     Constants.getHeadingFeedbackController(),
                     drivePowers,
-                    0,
+                    headingLockAngle,
                     Constants.getHeadingBreakLinear(),
                     Constants.getHeadingBreakQuadratic(),
                     Parameters.HEADING_LOCK_STRENGTH
             );
-        } else {
-            follower.manual(
-                drivePowers
-            );
         }
+
+        follower.manual(
+                drivePowers
+        );
     }
 
     public void setDrivePowers(double x, double y, double heading) {
@@ -154,17 +222,22 @@ public class RobotManager {
         return hardwareTable;
     }
 
-    public boolean isScoringElements() {
+    public boolean isScoringCycleEnabled() {
         return scoreElementsCycleEnabled;
     }
 
-    public void startScoringElements() {
+    public void startScoringCycle(boolean waitForShooterVelocity, boolean waitForHeadingLock) {
         intake.setFrontRollersPower(0);
-        shooter.closeGate();
         setIntakePower(0);
 
+        scoreWaitForHeadingLock = waitForHeadingLock;
+        scoreWaitForShooterVelocity = waitForShooterVelocity;
         scoreElementsCycleEnabled = true;
         isTransfering = false;
+    }
+
+    public void startScoringCycle() {
+        startScoringCycle(true, true);
     }
 
     public void setIntakePower(double power) {
@@ -173,15 +246,17 @@ public class RobotManager {
         }
     }
 
-    public void stopScoringElements() {
+    public void stopScoringCycle() {
+        shooter.closeGate();
         scoreElementsCycleEnabled = false;
+        isTransferOvercurrent = false;
     }
 
     public void toggleScoringElements() {
         if (scoreElementsCycleEnabled) {
-            stopScoringElements();
+            stopScoringCycle();
         } else {
-            startScoringElements();
+            startScoringCycle();
         }
     }
 
@@ -191,6 +266,14 @@ public class RobotManager {
 
     public void disableAutoTransferPollenDuringScoreCycle() {
         autoTransferPollenDuringScoreCycle = false;
+    }
+
+    public boolean isAutoTransferPollenDuringScoreCycleEnabled() {
+        return autoTransferPollenDuringScoreCycle;
+    }
+
+    public boolean isTransferCycleTimerEnabled() {
+        return transferCycleTimerEnabled;
     }
 
     public void enableHeadingLock() {
@@ -221,5 +304,92 @@ public class RobotManager {
     public void calibrateIMU() {
         // this method calibrates the IMU if the pinpoint is used in Constants.
         follower.localizer.reset();
+    }
+
+    public Pose getGoalPose(Pose robotPose) {
+        if (robotPose.y() > 70.75) {
+            if (robotAlliance == Alliance.RED) {
+                return Parameters.RED_AIM_GOAL_2;
+            } else if (robotAlliance == Alliance.BLUE) {
+                return Parameters.BLUE_AIM_GOAL_2;
+            }
+        } else {
+            if (robotAlliance == Alliance.RED) {
+                return Parameters.RED_AIM_GOAL_1;
+            } else if (robotAlliance == Alliance.BLUE) {
+                return Parameters.BLUE_AIM_GOAL_1;
+            }
+        }
+
+        return new Pose(0, 0);
+    }
+
+    public Pose getGoalPose() {
+        return getGoalPose(getPose());
+    }
+
+    public double getAngleToPose(Pose robotPose, Pose targetPose) {
+        return Math.atan2(targetPose.y() - robotPose.y(), targetPose.x() - robotPose.x()) + Math.PI;
+    }
+
+    public double getAngleToGoal(Pose robotPose) {
+        return getAngleToPose(robotPose, getGoalPose(robotPose));
+    }
+
+    public double getAngleToGoal() {
+        return getAngleToGoal(getPose());
+    }
+
+    /// in radians
+    public double getHeadingLockError() {
+        return Math.abs(headingLockAngle - getPose().heading());
+    }
+
+    public double getHeadingLockAngle() {
+        return headingLockAngle;
+    }
+
+    public void powerOnShooter() {
+        shooter.powerOn();
+    }
+
+    public void powerOffShooter() {
+        shooter.powerOff();
+    }
+
+    public void toggleShooter() {
+        shooter.togglePowered();
+    }
+
+    public boolean isShooterPoweredOn() {
+        return shooter.isPoweredOn();
+    }
+
+    public double getShooterMotor1Current() {
+        return shooter.getMotor1Current();
+    }
+
+    public double getShooterMotor2Current() {
+        return shooter.getMotor2Current();
+    }
+
+    public Follower getFollower() {
+        return follower;
+    }
+
+    public boolean isFlowerMechanismDown() {
+        return intake.isFlowerMechanismDown();
+    }
+
+    public void lowerFlowerMechanism() {
+        intake.lowerFlowerMechanism();
+    }
+
+    public void raiseFlowerMechanism() {
+        intake.raiseFlowerMechanism();
+    }
+
+    public void toggleFlowerMechanismPosition() {
+        intake.toggleFlowerMechanismPosition();
     }
 }

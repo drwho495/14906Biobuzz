@@ -1,10 +1,12 @@
 package org.firstinspires.ftc.teamcode.pedro;
 
-import com.bylazar.configurables.annotations.Configurable;
+//import com.bylazar.configurables.annotations.Configurable;
+import com.acmerobotics.dashboard.config.Config;
 import com.pedropathing.algorithm.Foresight;
 import com.pedropathing.algorithm.ForesightConfig;
 import com.pedropathing.controllers.Controller;
 import com.pedropathing.follower.Follower;
+import com.pedropathing.localization.Localizer;
 import com.pedropathing.math.Matrix;
 import com.pedropathing.math.Vector2D;
 import com.pedropathing.revhub.drivetrains.Mecanum;
@@ -17,7 +19,8 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
-@Configurable
+//@Configurable
+@Config
 public class Constants {
     public static MecanumConfig drivetrainConfig = new MecanumConfig(c -> {
         c.frontLeftName.set("motorLF");
@@ -81,17 +84,17 @@ public class Constants {
     }
 
     // we do this to carry localizer values through OpModes.
-    public static Follower cachedFollower = null;
+    public static Localizer cachedLocalizer = null;
 
     public static Follower create(HardwareMap h) {
-        if (cachedFollower == null) {
-            cachedFollower = new Follower(
-                    new PinpointLocalizer(h, localizerConfig),
-                    new Mecanum(h, drivetrainConfig),
-                    new Foresight(foresightConfig)
-            );
+        if (Constants.cachedLocalizer == null) {
+            Constants.cachedLocalizer = new PinpointLocalizer(h, localizerConfig);
         }
 
-        return cachedFollower;
+        return new Follower(
+                Constants.cachedLocalizer,
+                new Mecanum(h, drivetrainConfig),
+                new Foresight(foresightConfig)
+        );
     }
 }
