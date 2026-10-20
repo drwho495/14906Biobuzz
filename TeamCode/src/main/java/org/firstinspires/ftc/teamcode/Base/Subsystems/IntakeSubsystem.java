@@ -26,7 +26,7 @@ public class IntakeSubsystem {
 
         intakeMotor2 = hardwareTable.createMotor("intakeMotor2");
         intakeMotor2.enableFloat();
-        intakeMotor2.enableEncoderDrive();
+//        intakeMotor2.enableEncoderDrive();
         intakeMotor2.setReversed(intakeMotor1.isReversed());
 
         flowerMechServo = new ComplexServo(

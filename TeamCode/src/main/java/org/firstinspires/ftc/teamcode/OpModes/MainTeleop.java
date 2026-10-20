@@ -51,7 +51,7 @@ public class MainTeleop extends LinearOpMode {
                 robot.setDriverAngle(robotPose.heading(), AngleUnit.RADIANS);
             }
 
-            if (gamepad1.rightTriggerWasPressed()) {
+            if (gamepad1.leftBumperWasPressed()) {
                 robot.toggleFlowerMechanismPosition();
             }
 
@@ -69,8 +69,6 @@ public class MainTeleop extends LinearOpMode {
             telemetry.addData("Shooter Velocity: ", robot.getShooterVelocity());
             telemetry.addData("Selected Alliance: ", robot.getAlliance());
             telemetry.addData("Loop Time: ", loopTimer.time(TimeUnit.MILLISECONDS));
-//            telemetry.addData("Shooter Motor 1 Current: ", robot.getShooterMotor1Current());
-//            telemetry.addData("Shooter Motor 2 Current: ", robot.getShooterMotor2Current());
             telemetry.addData("Flower Mechanism Down: ", robot.isFlowerMechanismDown());
             telemetry.update();
 

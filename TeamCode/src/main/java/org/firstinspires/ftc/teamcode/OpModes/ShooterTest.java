@@ -3,12 +3,14 @@ package org.firstinspires.ftc.teamcode.OpModes;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.Utility;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.teamcode.Base.Parameters;
 import org.firstinspires.ftc.teamcode.Base.RobotManager;
 
-@Utility(name = "Utility: Shooter Test", description = "Provides the user with tools and data to reliably test the shooter.")
+@TeleOp(name = "Utility: Shooter Test"/*, description = "Provides the user with tools and data to reliably test the shooter."*/)
 public class ShooterTest extends LinearOpMode {
     RobotManager robot = new RobotManager();
     FtcDashboard dashboard;
@@ -61,7 +63,6 @@ public class ShooterTest extends LinearOpMode {
                     shooterCycleComplete = true;
                 }
 
-                packet.put("Shooter Velocity", shooterVelocity);
                 telemetry.addData("Shooter Velocity: ", shooterVelocity);
             } else {
                 telemetry.addLine("Press DPAD_UP to start the shooter.");
@@ -84,6 +85,9 @@ public class ShooterTest extends LinearOpMode {
             if (gamepad1.optionsWasPressed()) {
                 robot.setDriverAngle(robot.getPose().heading(), AngleUnit.RADIANS);
             }
+
+            packet.put("Shooter Velocity", shooterVelocity);
+            packet.put("Target Shooter Velocity", Parameters.SHOOTER_VELOCITY);
 
             if (shooterCycleComplete) {
                 telemetry.addData("Scoring Cycle - Start Shooter Velocity: ", scoringCycleStartShooterVelocity);

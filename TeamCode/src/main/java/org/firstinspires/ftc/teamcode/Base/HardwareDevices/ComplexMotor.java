@@ -22,7 +22,7 @@ enum ComplexMotorDriveMode {
 
 public class ComplexMotor extends HardwareDevice {
     private HardwareMap hardwareMap;
-    private DcMotorEx motorInterface = null;
+    public DcMotorEx motorInterface = null;
     private ComplexMotorDriveMode currentDriveMode = ComplexMotorDriveMode.RAW_POWER;
     private ComplexMotor encoderMotor = null;
     private double motorPower = 0;

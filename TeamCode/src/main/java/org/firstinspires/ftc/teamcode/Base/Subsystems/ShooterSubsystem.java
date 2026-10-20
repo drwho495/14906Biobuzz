@@ -21,7 +21,7 @@ public class ShooterSubsystem {
     private boolean gateOpen = false;
     private boolean poweredOn = false;
 
-    public static double transferP = 0.0003;
+    public static double transferP = 0.0004;
     public static double transferI = 0;
     public static double transferD = 0;
     public static double transferF = 0.00027;
@@ -37,7 +37,7 @@ public class ShooterSubsystem {
         shooterMotor2.enableEncoderDrive();
         shooterMotor2.enableFloat();
 
-        shooterMotor1.setLinkedMotor(shooterMotor2);
+//        shooterMotor1.setLinkedMotor(shooterMotor2);
         shooterMotor1.resetEncoder();
         shooterMotor2.resetEncoder();
 
@@ -85,9 +85,11 @@ public class ShooterSubsystem {
         );
 
         if (poweredOn) {
-            shooterMotor1.setVelocity(Parameters.SHOOTER_VELOCITY);
+            shooterMotor1.motorInterface.setVelocity(Parameters.SHOOTER_VELOCITY);
+            shooterMotor2.motorInterface.setVelocity(Parameters.SHOOTER_VELOCITY);
         } else {
-            shooterMotor1.setPower(0);
+            shooterMotor1.motorInterface.setPower(0);
+            shooterMotor2.motorInterface.setPower(0);
         }
 
         shooterMotor1.update();
