@@ -37,7 +37,8 @@ public class ShooterSubsystem {
         shooterMotor2.enableEncoderDrive();
         shooterMotor2.enableFloat();
 
-//        shooterMotor1.setLinkedMotor(shooterMotor2);
+        shooterMotor1.enableInteratedPIDF();
+        shooterMotor1.setLinkedMotor(shooterMotor2);
         shooterMotor1.resetEncoder();
         shooterMotor2.resetEncoder();
 
@@ -77,19 +78,17 @@ public class ShooterSubsystem {
             gateServo.turnToAngle(Parameters.GATE_CLOSED_POSITION);
         }
 
-        shooterMotor1.setVelocityPIDFCoefficients(
-                transferP,
-                transferI,
-                transferD,
-                transferF
-        );
+//        shooterMotor1.setVelocityPIDFCoefficients(
+//                transferP,
+//                transferI,
+//                transferD,
+//                transferF
+//        );
 
         if (poweredOn) {
-            shooterMotor1.motorInterface.setVelocity(Parameters.SHOOTER_VELOCITY);
-            shooterMotor2.motorInterface.setVelocity(Parameters.SHOOTER_VELOCITY);
+            shooterMotor1.setVelocity(Parameters.SHOOTER_VELOCITY);
         } else {
-            shooterMotor1.motorInterface.setPower(0);
-            shooterMotor2.motorInterface.setPower(0);
+            shooterMotor1.setPower(0);
         }
 
         shooterMotor1.update();

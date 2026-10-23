@@ -8,7 +8,7 @@ public class Parameters {
     public static double ACCEPTABLE_HEADING_LOCK_ERROR = Math.toRadians(5);
     public static double SCORE_TRANSFER_SPEED = 0.8;
     public static double MOTOR_VOLTAGE_TARGET = 12.0;
-    public static double SHOOTER_VELOCITY = 875;
+    public static double SHOOTER_VELOCITY = 880;
     public static double HEADING_LOCK_STRENGTH = 1.0;
     public static double SHOOTER_READY_TOLERANCE = 100.0;
     public static double GATE_OPEN_POSITION = 30.0;

@@ -22,8 +22,9 @@ enum ComplexMotorDriveMode {
 
 public class ComplexMotor extends HardwareDevice {
     private HardwareMap hardwareMap;
-    public DcMotorEx motorInterface = null;
+    private DcMotorEx motorInterface = null;
     private ComplexMotorDriveMode currentDriveMode = ComplexMotorDriveMode.RAW_POWER;
+    private ComplexMotorDriveMode lastDriveMode = ComplexMotorDriveMode.RAW_POWER;
     private ComplexMotor encoderMotor = null;
     private double motorPower = 0;
     private double motorPowerTarget = 0; // updated with setPower
@@ -43,6 +44,7 @@ public class ComplexMotor extends HardwareDevice {
     private String deviceName = null;
     private boolean motorReversed = false;
     private ElapsedTime loopTimer = new ElapsedTime();
+    private boolean integratedPIDFEnabled = false;
 
     public ComplexMotor(String hwName, HardwareMap hardwareMap) {
         this.hardwareMap = hardwareMap;
@@ -86,6 +88,14 @@ public class ComplexMotor extends HardwareDevice {
         return currentVelocity;
     }
 
+    public void enableInteratedPIDF() {
+        integratedPIDFEnabled = true;
+    }
+
+    public void disableInteratedPIDF() {
+        integratedPIDFEnabled = false;
+    }
+
     public void setVelocityPIDFCoefficients(double p, double i, double d, double f) {
         velocityController.setPIDF(p, i, d, f);
     }
@@ -99,7 +109,7 @@ public class ComplexMotor extends HardwareDevice {
     }
 
     public void setVelocity(double newVelo) {
-        currentDriveMode = ComplexMotorDriveMode.VELOCITY;
+        setDriveMode(ComplexMotorDriveMode.VELOCITY);
         motorVelocity = newVelo;
     }
 
@@ -127,26 +137,30 @@ public class ComplexMotor extends HardwareDevice {
         }
 
         if (currentDriveMode == ComplexMotorDriveMode.VELOCITY) {
-            if (motorVelocity != 0) {
-                velocityController.setSetPoint(motorVelocity);
-                motorPower = velocityController.calculate(currentVelocity);
+            if (integratedPIDFEnabled) {
+                motorInterface.setVelocity(motorVelocity);
 
-                if (vSensor != null) {
-                    motorPower *= (Parameters.MOTOR_VOLTAGE_TARGET / vSensor.getVoltage());
+                if (childMotor != null) {
+                    childMotor.setVelocity(motorVelocity);
                 }
             } else {
-                motorPower = 0;
+                if (motorVelocity != 0) {
+                    velocityController.setSetPoint(motorVelocity);
+                    motorPower = velocityController.calculate(currentVelocity);
+
+                    if (vSensor != null) {
+                        motorPower *= (Parameters.MOTOR_VOLTAGE_TARGET / vSensor.getVoltage());
+                    }
+
+                    updateMotorPower();
+                } else {
+                    motorPower = 0;
+                }
             }
         } else if (currentDriveMode == ComplexMotorDriveMode.RAW_POWER) {
             motorPower = motorPowerTarget;
-        }
 
-        if (lastMotorPower != motorPower) {
-            motorInterface.setPower(motorPower);
-
-            if (childMotor != null) {
-                childMotor.setPower(motorPower);
-            }
+            updateMotorPower();
         }
 
         lastMotorPower = motorPower;
@@ -155,6 +169,21 @@ public class ComplexMotor extends HardwareDevice {
         updateCurrent = true;
 
         loopTimer.reset();
+    }
+
+    private void updateMotorPower() {
+        if (lastMotorPower != motorPower || lastDriveMode == ComplexMotorDriveMode.VELOCITY) {
+            motorInterface.setPower(motorPower);
+
+            if (childMotor != null) {
+                childMotor.motorInterface.setPower(motorPower);
+            }
+        }
+    }
+
+    private void setDriveMode(ComplexMotorDriveMode mode) {
+        lastDriveMode = currentDriveMode;
+        currentDriveMode = mode;
     }
 
     public double getCurrent() {
@@ -167,7 +196,7 @@ public class ComplexMotor extends HardwareDevice {
     }
 
     public void setPower(double power) {
-        currentDriveMode = ComplexMotorDriveMode.RAW_POWER;
+        setDriveMode(ComplexMotorDriveMode.RAW_POWER);
         motorPowerTarget = power;
     }
 
