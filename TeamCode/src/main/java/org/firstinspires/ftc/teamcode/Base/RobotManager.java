@@ -4,12 +4,16 @@ import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.ManualDrive;
 import com.pedropathing.math.Pose;
+import com.pedropathing.paths.Path;
 import com.qualcomm.hardware.lynx.LynxModule;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.robotcore.external.Supplier;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.Base.Misc.Alliance;
+import org.firstinspires.ftc.teamcode.Base.Misc.AutoUtils;
 import org.firstinspires.ftc.teamcode.Base.Subsystems.IntakeSubsystem;
 import org.firstinspires.ftc.teamcode.Base.Subsystems.ShooterSubsystem;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
@@ -40,20 +44,25 @@ public class RobotManager {
     private double driverAngleOffset = 0;
     private Alliance robotAlliance = Alliance.RED;
     private List<LynxModule> lynxModules;
+    private boolean followerEndStalePathEnabled = true;
+    private boolean pathTimeoutApplied = false;
+    private double pathTimeout = 0;
+    private LinearOpMode opMode;
 
-    public void initialize(HardwareMap hardwareMap) {
-        hardwareTable = new HardwareTable(hardwareMap);
-        follower = Constants.create(hardwareMap);
+    public void initialize(LinearOpMode thisOpMode) {
+        opMode = thisOpMode;
+        hardwareTable = new HardwareTable(opMode.hardwareMap);
+        follower = Constants.create(opMode.hardwareMap);
 
         setAlliance(
                 StaticStorage.storedAlliance,
                 false
         );
 
-        shooter.initialize(hardwareMap, hardwareTable);
-        intake.initialize(hardwareMap, hardwareTable);
+        shooter.initialize(opMode.hardwareMap, hardwareTable);
+        intake.initialize(opMode.hardwareMap, hardwareTable);
 
-        lynxModules = hardwareMap.getAll(LynxModule.class);
+        lynxModules = opMode.hardwareMap.getAll(LynxModule.class);
 
         for (LynxModule module : lynxModules) {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
@@ -66,7 +75,8 @@ public class RobotManager {
                 isTransfering = true;
 
                 transferCycleTimer.reset();
-                intake.setTransferRollersPower(Parameters.SCORE_TRANSFER_SPEED);
+                transferCycleTimerEnabled = true;
+                intake.setTransferRollersVelocity(Parameters.SCORE_TRANSFER_VELOCITY);
                 shooter.openGate();
             }
 
@@ -391,5 +401,134 @@ public class RobotManager {
 
     public void toggleFlowerMechanismPosition() {
         intake.toggleFlowerMechanismPosition();
+    }
+
+    public void setPose(Pose newPose) {
+        follower.setPose(newPose);
+    }
+
+    /*
+     * This will get a copy of the inputted pose that will/won't be mirrored
+     * depending on the robot's alliance
+     */
+    public Pose getFixedPose(Pose pose) {
+        if (robotAlliance == Alliance.RED) {
+            return pose; // no mirroring is needed
+        } else {
+            return AutoUtils.getMirroredPose(pose);
+        }
+    }
+
+    /*
+     * This will get a copy of the inputted x, y and heading values that will/won't be mirrored
+     * depending on the robot's alliance
+     */
+    public Pose getFixedPose(double x, double y, double heading) {
+        Pose builtPose = new Pose(x, y, heading);
+
+        if (robotAlliance == Alliance.RED) {
+            return builtPose; // no mirroring is needed
+        } else {
+            return AutoUtils.getMirroredPose(builtPose);
+        }
+    }
+
+    /*
+     * This will get a copy of the inputted x and y values that will/won't be mirrored
+     * depending on the robot's alliance
+     */
+    public Pose getFixedPose(double x, double y) {
+        return getFixedPose(x, y, 0);
+    }
+
+    /*
+     * This will return a copy of the inputted heading value that could be mirrored if the robot
+     * is on blue.
+     */
+    public double getFixedHeading(double heading, AngleUnit angleUnit) {
+        double correctedHeading = heading;
+
+        if (angleUnit == AngleUnit.DEGREES) {
+            correctedHeading = Math.toRadians(heading);
+        }
+
+        if (robotAlliance == Alliance.RED) {
+            return correctedHeading; // no mirroring is needed
+        } else {
+            return AutoUtils.getMirroredPose(new Pose(0, 0, correctedHeading)).heading();
+        }
+    }
+
+    /*
+     * This will return a copy of the inputted heading value (in degrees) that could be mirrored if the robot
+     * is on blue.
+     */
+    public double getFixedHeading(double heading) {
+        return getFixedHeading(heading, AngleUnit.DEGREES);
+    }
+
+    public void runPathBlocking(Path path, boolean correctAfterFinished) {
+        follower.stop();
+
+        follower.holdEnd.set(correctAfterFinished);
+        follower.follow(path);
+
+        ElapsedTime timer = new ElapsedTime();
+
+        while (follower.following() && !opMode.isStopRequested() && opMode.opModeIsActive()) {
+            Pose robotPose = getPose();
+
+            opMode.telemetry.addData("Robot X: ", robotPose.x());
+            opMode.telemetry.addData("Robot Y: ", robotPose.y());
+            opMode.telemetry.addData("Robot Heading: ", Math.toDegrees(robotPose.heading()));
+            opMode.telemetry.update();
+
+            if (pathTimeoutApplied && timer.time(TimeUnit.MILLISECONDS) >= pathTimeout) {
+                break;
+            }
+
+            update();
+        }
+
+        pathTimeoutApplied = false;
+    }
+
+    public void runPathBlocking(Path path) {
+        runPathBlocking(path, true);
+    }
+
+    public void sleep(double time) {
+        ElapsedTime timer = new ElapsedTime();
+
+        sleep(timer, time);
+    }
+
+    public void sleep(ElapsedTime timer, double time) {
+        waitForCondition(() -> timer.time(TimeUnit.MILLISECONDS) >= time);
+    }
+
+    public void waitForShooter(double timeout) {
+        ElapsedTime timer = new ElapsedTime();
+
+        waitForCondition(() -> timer.time(TimeUnit.MILLISECONDS) >= timeout || shooter.ready());
+    }
+
+    public void waitForCondition(Supplier<Boolean> condition) {
+        while (!condition.get() && opMode.opModeIsActive()) {
+            update();
+        }
+    }
+
+    public void stopFollowing() {
+        follower.stop();
+    }
+
+    public void setAutoSpeed(double speed) {
+        Constants.foresightConfig.maxPathSpeed.set(speed);
+    }
+
+    public void addPathTimeout(double timeout) {
+        pathTimeoutApplied = true;
+        pathTimeout = timeout;
     }
 }

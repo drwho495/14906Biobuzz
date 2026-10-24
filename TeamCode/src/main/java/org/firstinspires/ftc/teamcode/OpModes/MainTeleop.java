@@ -17,8 +17,9 @@ public class MainTeleop extends LinearOpMode {
     
     @Override
     public void runOpMode() throws InterruptedException {
-        robot.initialize(hardwareMap);
-        robot.disableTransferEcoMode();
+        robot.initialize(this);
+        robot.enableTransferEcoMode();
+        robot.enableAutoTransferPollenDuringScoreCycle();
         
         waitForStart();
 
@@ -37,11 +38,11 @@ public class MainTeleop extends LinearOpMode {
                 robot.stopScoringCycle();
             }
 
-            if (gamepad1.xWasPressed()) {
-                robot.enableHeadingLock();
-            } else if (gamepad1.xWasReleased() && robot.isHeadingLockEnabled()) {
-                robot.disableHeadingLock();
-            }
+//            if (gamepad1.xWasPressed()) {
+//                robot.enableHeadingLock();
+//            } else if (gamepad1.xWasReleased() && robot.isHeadingLockEnabled()) {
+//                robot.disableHeadingLock();
+//            }
 
             if (gamepad1.dpadDownWasPressed()) {
                 robot.selectOtherAlliance();
@@ -74,6 +75,8 @@ public class MainTeleop extends LinearOpMode {
 
             if (gamepad1.a) {
                 robot.setIntakePower(1);
+            } else if (gamepad1.right_trigger > .1) {
+                robot.setIntakePower(gamepad1.right_trigger);
             } else if (gamepad1.left_trigger > .1) {
                 robot.setIntakePower(-gamepad1.left_trigger);
             } else {

@@ -14,7 +14,7 @@ public class IntakeSubsystem {
     private ComplexMotor intakeMotor2;
     private ComplexServo flowerMechServo;
     private double frontRollersPower = 0;
-    private double transferRollersPower = 0;
+    private double transferRollersVelocity = 0;
     private boolean transferOvercurrent = false;
     private boolean transferOvercurrentSet = false;
     private boolean flowerMechanismDown = false;
@@ -26,7 +26,8 @@ public class IntakeSubsystem {
 
         intakeMotor2 = hardwareTable.createMotor("intakeMotor2");
         intakeMotor2.enableFloat();
-//        intakeMotor2.enableEncoderDrive();
+        intakeMotor2.enableEncoderDrive();
+        intakeMotor2.enableInteratedPIDF();
         intakeMotor2.setReversed(intakeMotor1.isReversed());
 
         flowerMechServo = new ComplexServo(
@@ -42,7 +43,7 @@ public class IntakeSubsystem {
 
     public void update() {
         intakeMotor1.setPower(frontRollersPower);
-        intakeMotor2.setPower(transferRollersPower);
+        intakeMotor2.setVelocity(transferRollersVelocity);
 
         intakeMotor2.setCurrentLimit(CurrentUnit.AMPS, Parameters.TRANSFER_OVERCURRENT_THRESHOLD);
 
@@ -62,8 +63,12 @@ public class IntakeSubsystem {
         frontRollersPower = power;
     }
 
+    public void setTransferRollersVelocity(double velocity) {
+        transferRollersVelocity = velocity;
+    }
+
     public void setTransferRollersPower(double power) {
-        transferRollersPower = power;
+        transferRollersVelocity = power * 2800;
     }
 
     public boolean isFlowerMechanismDown() {
@@ -75,7 +80,7 @@ public class IntakeSubsystem {
     }
 
     public void raiseFlowerMechanism() {
-        flowerMechanismDown = true;
+        flowerMechanismDown = false;
     }
 
     public void toggleFlowerMechanismPosition() {

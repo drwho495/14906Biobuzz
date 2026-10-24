@@ -18,7 +18,7 @@ public class LeaveAuto extends LinearOpMode {
     private Follower follower = null;
     @Override
     public void runOpMode() throws InterruptedException {
-        robot.initialize(hardwareMap);
+        robot.initialize(this);
         follower = robot.getFollower();
 
         follower.setPose(new Pose(0, 0, 0));

@@ -38,7 +38,7 @@ public class ShooterSubsystem {
         shooterMotor2.enableFloat();
 
         shooterMotor1.enableInteratedPIDF();
-        shooterMotor1.setLinkedMotor(shooterMotor2);
+        shooterMotor2.enableInteratedPIDF();
         shooterMotor1.resetEncoder();
         shooterMotor2.resetEncoder();
 
@@ -87,8 +87,10 @@ public class ShooterSubsystem {
 
         if (poweredOn) {
             shooterMotor1.setVelocity(Parameters.SHOOTER_VELOCITY);
+            shooterMotor2.setVelocity(Parameters.SHOOTER_VELOCITY);
         } else {
             shooterMotor1.setPower(0);
+            shooterMotor2.setPower(0);
         }
 
         shooterMotor1.update();

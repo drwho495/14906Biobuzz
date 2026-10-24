@@ -10,7 +10,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.Base.Parameters;
 import org.firstinspires.ftc.teamcode.Base.RobotManager;
 
-@TeleOp(name = "Utility: Shooter Test"/*, description = "Provides the user with tools and data to reliably test the shooter."*/)
+@Utility(name = "Utility: Shooter Test", description = "Provides the user with tools and data to reliably test the shooter.")
 public class ShooterTest extends LinearOpMode {
     RobotManager robot = new RobotManager();
     FtcDashboard dashboard;
@@ -18,7 +18,7 @@ public class ShooterTest extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
-        robot.initialize(hardwareMap);
+        robot.initialize(this);
 
         dashboard = FtcDashboard.getInstance();
 

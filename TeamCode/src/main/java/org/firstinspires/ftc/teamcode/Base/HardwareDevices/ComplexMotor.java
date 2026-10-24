@@ -2,6 +2,8 @@ package org.firstinspires.ftc.teamcode.Base.HardwareDevices;
 
 import static java.lang.Math.abs;
 
+import com.pedropathing.controllers.Controller;
+import com.pedropathing.controllers.PIDController;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -9,7 +11,6 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
-import org.firstinspires.ftc.teamcode.Base.Misc.PIDFController;
 import org.firstinspires.ftc.teamcode.Base.Parameters;
 
 import java.util.concurrent.TimeUnit;
@@ -22,7 +23,7 @@ enum ComplexMotorDriveMode {
 
 public class ComplexMotor extends HardwareDevice {
     private HardwareMap hardwareMap;
-    private DcMotorEx motorInterface = null;
+    public DcMotorEx motorInterface = null;
     private ComplexMotorDriveMode currentDriveMode = ComplexMotorDriveMode.RAW_POWER;
     private ComplexMotorDriveMode lastDriveMode = ComplexMotorDriveMode.RAW_POWER;
     private ComplexMotor encoderMotor = null;
@@ -34,9 +35,8 @@ public class ComplexMotor extends HardwareDevice {
     private double motorVelocity = 0;
     private double currentVelocity;
     private double voltageTarget = 12.0;
-    private final PIDFController velocityController = new PIDFController(0, 0, 0, 0);
+    private final PIDController velocityController = new PIDController(0, 0, 0);
     private ComplexVoltageSensor vSensor = null;
-    private ComplexMotor childMotor = null;
     private double currentLimit = 0;
     private double current = 0;
     private boolean updateCurrent = true;
@@ -76,10 +76,6 @@ public class ComplexMotor extends HardwareDevice {
         this.motorInterface.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
     }
 
-    public void setLinkedMotor(ComplexMotor linkedMotor) {
-        this.childMotor = linkedMotor;
-    }
-
     public void setEncoderDevice(ComplexMotor motor) {
         encoderMotor = motor;
     }
@@ -97,12 +93,14 @@ public class ComplexMotor extends HardwareDevice {
     }
 
     public void setVelocityPIDFCoefficients(double p, double i, double d, double f) {
-        velocityController.setPIDF(p, i, d, f);
+        velocityController.kP = p;
+        velocityController.kI = i;
+        velocityController.kD = d;
     }
 
-    public double[] getVelocityPIDFCoefficients() {
-        return velocityController.getCoefficients();
-    }
+//    public double[] getVelocityPIDFCoefficients() {
+//        return velocityController.getCoefficients();
+//    }
 
     public void setMotorRunMode(DcMotor.RunMode runMode) {
         motorInterface.setMode(runMode);
@@ -139,14 +137,10 @@ public class ComplexMotor extends HardwareDevice {
         if (currentDriveMode == ComplexMotorDriveMode.VELOCITY) {
             if (integratedPIDFEnabled) {
                 motorInterface.setVelocity(motorVelocity);
-
-                if (childMotor != null) {
-                    childMotor.setVelocity(motorVelocity);
-                }
             } else {
                 if (motorVelocity != 0) {
-                    velocityController.setSetPoint(motorVelocity);
-                    motorPower = velocityController.calculate(currentVelocity);
+//                    velocityController.setSetPoint(motorVelocity);
+                    motorPower = velocityController.calculate(currentVelocity, motorVelocity - currentVelocity);
 
                     if (vSensor != null) {
                         motorPower *= (Parameters.MOTOR_VOLTAGE_TARGET / vSensor.getVoltage());
@@ -174,10 +168,6 @@ public class ComplexMotor extends HardwareDevice {
     private void updateMotorPower() {
         if (lastMotorPower != motorPower || lastDriveMode == ComplexMotorDriveMode.VELOCITY) {
             motorInterface.setPower(motorPower);
-
-            if (childMotor != null) {
-                childMotor.motorInterface.setPower(motorPower);
-            }
         }
     }
 

@@ -60,6 +60,7 @@ public class Constants {
 
                 c.headingFeedback.set(Controller.proportional(5.866789886935148));
                 c.headingBrakeCoefficients.set(Vector2D.cartesian(0.06896151485482664, 0.0045723101633395125));
+                c.maxPathSpeed.set(1.0);
 
                 c.linearBrakeCoefficients.set(Matrix.diag(0.0825424319612417, 0.05550142123606644));
                 c.quadraticBrakeCoefficients.set(Matrix.diag(0.0018822725148517894, 0.002074946628591682));
