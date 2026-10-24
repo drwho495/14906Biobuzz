@@ -21,10 +21,10 @@ public class ShooterSubsystem {
     private boolean gateOpen = false;
     private boolean poweredOn = false;
 
-    public static double transferP = 0.0004;
-    public static double transferI = 0;
-    public static double transferD = 0;
-    public static double transferF = 0.00027;
+    public static double transferP = 0;
+    public static double transferS = 0;
+    public static double transferV = 0;
+    public static double transferA = 0;
 
     public void initialize(HardwareMap hardwareMap, HardwareTable hardwareTable) {
         shooterMotor1 = hardwareTable.createMotor("shooterMotor1");
@@ -78,12 +78,19 @@ public class ShooterSubsystem {
             gateServo.turnToAngle(Parameters.GATE_CLOSED_POSITION);
         }
 
-//        shooterMotor1.setVelocityPIDFCoefficients(
-//                transferP,
-//                transferI,
-//                transferD,
-//                transferF
-//        );
+        shooterMotor1.setVelocityCoeffs(
+                transferP,
+                transferS,
+                transferV,
+                transferA
+        );
+
+        shooterMotor2.setVelocityCoeffs(
+                transferP,
+                transferS,
+                transferV,
+                transferA
+        );
 
         if (poweredOn) {
             shooterMotor1.setVelocity(Parameters.SHOOTER_VELOCITY);
