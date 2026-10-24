@@ -5,7 +5,6 @@ import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.teamcode.Base.HardwareDevices.ComplexMotor;
 import org.firstinspires.ftc.teamcode.Base.HardwareDevices.ComplexServo;
 import org.firstinspires.ftc.teamcode.Base.HardwareTable;
@@ -37,8 +36,8 @@ public class ShooterSubsystem {
         shooterMotor2.enableEncoderDrive();
         shooterMotor2.enableFloat();
 
-        shooterMotor1.enableInteratedPIDF();
-        shooterMotor2.enableInteratedPIDF();
+        shooterMotor1.useCustomController();
+        shooterMotor2.useCustomController();
         shooterMotor1.resetEncoder();
         shooterMotor2.resetEncoder();
 

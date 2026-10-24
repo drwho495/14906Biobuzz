@@ -2,8 +2,6 @@ package org.firstinspires.ftc.teamcode.Base.HardwareDevices;
 
 import static java.lang.Math.abs;
 
-import com.pedropathing.controllers.Controller;
-import com.pedropathing.controllers.PIDController;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -45,7 +43,7 @@ public class ComplexMotor extends HardwareDevice {
     private String deviceName = null;
     private boolean motorReversed = false;
     private ElapsedTime loopTimer = new ElapsedTime();
-    private boolean integratedPIDFEnabled = false;
+    private boolean integratedControllerEnabled = false;
 
     public ComplexMotor(String hwName, HardwareMap hardwareMap) {
         this.hardwareMap = hardwareMap;
@@ -85,12 +83,12 @@ public class ComplexMotor extends HardwareDevice {
         return currentVelocity;
     }
 
-    public void enableInteratedPIDF() {
-        integratedPIDFEnabled = true;
+    public void useInteratedController() {
+        integratedControllerEnabled = true;
     }
 
-    public void disableInteratedPIDF() {
-        integratedPIDFEnabled = false;
+    public void useCustomController() {
+        integratedControllerEnabled = false;
     }
 
     public void setVelocityCoeffs(double kP, double kS, double kV, double kA) {
@@ -131,14 +129,13 @@ public class ComplexMotor extends HardwareDevice {
         }
 
         if (currentDriveMode == ComplexMotorDriveMode.VELOCITY) {
-            if (integratedPIDFEnabled) {
+            if (integratedControllerEnabled) {
                 motorInterface.setVelocity(motorVelocity);
             } else {
                 if (motorVelocity != 0) {
-//                    velocityController.setSetPoint(motorVelocity);
                     motorPower = velocityController.calculate(
                             currentVelocity,
-                            motorVelocity - currentVelocity,
+                            motorVelocity,
                             deltaTime
                     );
 
