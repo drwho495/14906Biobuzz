@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.Base;
 
+import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -9,6 +10,7 @@ import org.firstinspires.ftc.teamcode.Base.HardwareDevices.ComplexVoltageSensor;
 import org.firstinspires.ftc.teamcode.Base.HardwareDevices.HardwareDevice;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class HardwareTable {
     private ArrayList<String> registeredHardwareNames = new ArrayList<>();
@@ -60,5 +62,13 @@ public class HardwareTable {
 
     public ComplexVoltageSensor getVoltageSensor() {
         return voltageSensor;
+    }
+
+    public HardwareMap getHardwareMap() {
+        return hardwareMap;
+    }
+
+    public List<LynxModule> getLynxModules() {
+        return hardwareMap.getAll(LynxModule.class);
     }
 }

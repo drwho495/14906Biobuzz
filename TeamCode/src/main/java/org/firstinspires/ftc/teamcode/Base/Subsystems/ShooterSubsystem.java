@@ -21,19 +21,19 @@ public class ShooterSubsystem {
     private boolean poweredOn = false;
 
     public static double transferP = 0;
-    public static double transferS = 0;
-    public static double transferV = 0;
-    public static double transferA = 0;
+    public static double transferS = 0.05;
+    public static double transferV = 0.00035;
+    public static double transferA = 0.2;
 
-    public void initialize(HardwareMap hardwareMap, HardwareTable hardwareTable) {
+    public void initialize(HardwareTable hardwareTable) {
         shooterMotor1 = hardwareTable.createMotor("shooterMotor1");
-        shooterMotor1.setReversed(true);
-        shooterMotor1.enableEncoderDrive();
+        shooterMotor1.setReversed(false);
+        shooterMotor1.disableEncoderDrive();
         shooterMotor1.enableFloat();
 
         shooterMotor2 = hardwareTable.createMotor("shooterMotor2");
         shooterMotor2.setReversed(!shooterMotor1.isReversed());
-        shooterMotor2.enableEncoderDrive();
+        shooterMotor2.disableEncoderDrive();
         shooterMotor2.enableFloat();
 
         shooterMotor1.useCustomController();
@@ -128,6 +128,6 @@ public class ShooterSubsystem {
     }
 
     public boolean isPoweredOn() {
-        return poweredOn;
+        return poweredOn && motorVelocity > 0;
     }
 }

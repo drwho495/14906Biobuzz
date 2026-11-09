@@ -29,8 +29,6 @@ public class ComplexMotor extends HardwareDevice {
     private double motorPower = 0;
     private double motorPowerTarget = 0; // updated with setPower
     private double lastMotorPower = 0;
-    private double lastMotorVelocity = 0;
-    private int lastMotorTickPosition = 0;
     private double motorVelocity = 0;
     private double currentVelocity;
     private double voltageTarget = 12.0;
@@ -118,12 +116,10 @@ public class ComplexMotor extends HardwareDevice {
 
     public void update() {
         long deltaTime = loopTimer.time(TimeUnit.MILLISECONDS);
-        int currentMotorTickPosition = 0;
 
         if (encoderMotor != null) {
             // get velocity in ticks per second
-            currentMotorTickPosition = encoderMotor.motorInterface.getCurrentPosition();
-            currentVelocity = (currentMotorTickPosition - lastMotorTickPosition) * (1000d / deltaTime);
+            currentVelocity = motorInterface.getVelocity();
         } else {
             currentVelocity = 0;
         }
@@ -155,8 +151,6 @@ public class ComplexMotor extends HardwareDevice {
         }
 
         lastMotorPower = motorPower;
-        lastMotorVelocity = motorVelocity;
-        lastMotorTickPosition = currentMotorTickPosition;
         updateCurrent = true;
 
         loopTimer.reset();

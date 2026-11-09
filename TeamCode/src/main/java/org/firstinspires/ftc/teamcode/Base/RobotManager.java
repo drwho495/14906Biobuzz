@@ -7,13 +7,15 @@ import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.Supplier;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.Base.Misc.Alliance;
-import org.firstinspires.ftc.teamcode.Base.Misc.AutoUtils;
+import org.firstinspires.ftc.teamcode.Base.Misc.Flower;
+import org.firstinspires.ftc.teamcode.Base.Misc.Hive;
+import org.firstinspires.ftc.teamcode.Base.Subsystems.BrakeSubsystem;
+import org.firstinspires.ftc.teamcode.Base.Utilities.MathUtils;
 import org.firstinspires.ftc.teamcode.Base.Subsystems.IntakeSubsystem;
 import org.firstinspires.ftc.teamcode.Base.Subsystems.ShooterSubsystem;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
@@ -25,9 +27,12 @@ public class RobotManager {
     private HardwareTable hardwareTable;
     private IntakeSubsystem intake = new IntakeSubsystem();
     private ShooterSubsystem shooter = new ShooterSubsystem();
+    private BrakeSubsystem brake = new BrakeSubsystem();
     private Follower follower;
     private ElapsedTime cacheResetTimer = new ElapsedTime();
     private ElapsedTime transferCycleTimer = new ElapsedTime();
+    private ElapsedTime transferStartDelayTimer = new ElapsedTime();
+    private boolean stageTransfer = false;
     private boolean isTransfering = false;
     private double manualIntakePower = 0;
     private boolean scoreElementsCycleEnabled = false;
@@ -35,7 +40,7 @@ public class RobotManager {
     private boolean teleopDriveActive = false;
     private boolean headingLockEnabled = false;
     private boolean scoreWaitForShooterVelocity = false;
-    private boolean scoreWaitForHeadingLock = false;
+    private boolean scoreWaitForHeading = false;
     private boolean transferCycleTimerEnabled = false;
     private boolean isTransferOvercurrent = false;
     private boolean stopTransferIfOvercurrent = true;
@@ -46,6 +51,7 @@ public class RobotManager {
     private List<LynxModule> lynxModules;
     private boolean followerEndStalePathEnabled = true;
     private boolean pathTimeoutApplied = false;
+    private boolean manualDriveEnabled = false;
     private double pathTimeout = 0;
     private LinearOpMode opMode;
 
@@ -59,10 +65,11 @@ public class RobotManager {
                 false
         );
 
-        shooter.initialize(opMode.hardwareMap, hardwareTable);
-        intake.initialize(opMode.hardwareMap, hardwareTable);
+        shooter.initialize(hardwareTable);
+        intake.initialize(hardwareTable);
+        brake.initialize(hardwareTable);
 
-        lynxModules = opMode.hardwareMap.getAll(LynxModule.class);
+        lynxModules = hardwareTable.getLynxModules();
 
         for (LynxModule module : lynxModules) {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
@@ -71,13 +78,22 @@ public class RobotManager {
 
     public void update() {
         if (scoreElementsCycleEnabled) {
-            if (canShoot() && !isTransfering) {
+            if (canShoot() && !stageTransfer && !isTransfering) {
+                stageTransfer = true;
+
+                transferStartDelayTimer.reset();
+                shooter.openGate();
+            }
+
+            if (stageTransfer && transferStartDelayTimer.time(TimeUnit.MILLISECONDS) >= Parameters.TRANSFER_START_DELAY_TIME) {
                 isTransfering = true;
+                stageTransfer = false;
 
                 transferCycleTimer.reset();
                 transferCycleTimerEnabled = true;
+
+                intake.setFrontRollersPower(Parameters.SCORE_TRANSFER_VELOCITY);
                 intake.setTransferRollersVelocity(Parameters.SCORE_TRANSFER_VELOCITY);
-                shooter.openGate();
             }
 
             if (isTransfering) {
@@ -86,6 +102,7 @@ public class RobotManager {
                         stopScoringCycle();
                     }
                 } else {
+                    intake.setFrontRollersPower(manualIntakePower);
                     intake.setTransferRollersPower(manualIntakePower);
                 }
             }
@@ -126,6 +143,7 @@ public class RobotManager {
         follower.update();
         shooter.update();
         intake.update();
+        brake.update();
     }
 
     private void setAlliance(Alliance alliance, boolean cacheAllianceValue) {
@@ -137,11 +155,15 @@ public class RobotManager {
     }
 
     public boolean canShoot() {
+        if (!shooter.isPoweredOn()) {
+            return false;
+        }
+
         if (scoreWaitForShooterVelocity && !shooter.ready()) {
             return false;
         }
 
-        if (scoreWaitForHeadingLock && headingLockEnabled && getHeadingLockError() > Parameters.ACCEPTABLE_HEADING_LOCK_ERROR) {
+        if (scoreWaitForHeading && headingLockEnabled && headingAtTarget()) {
             return false;
         }
 
@@ -187,6 +209,8 @@ public class RobotManager {
         if (follower.isBusy()) {
             follower.stop();
         }
+
+        manualDriveEnabled = true;
 
         if (!teleopDriveActive) {
             teleopDriveActive = true;
@@ -236,14 +260,15 @@ public class RobotManager {
         return scoreElementsCycleEnabled;
     }
 
-    public void startScoringCycle(boolean waitForShooterVelocity, boolean waitForHeadingLock) {
+    public void startScoringCycle(boolean waitForShooterVelocity, boolean waitForHeading) {
         intake.setFrontRollersPower(0);
         setIntakePower(0);
 
-        scoreWaitForHeadingLock = waitForHeadingLock;
+        scoreWaitForHeading = waitForHeading;
         scoreWaitForShooterVelocity = waitForShooterVelocity;
         scoreElementsCycleEnabled = true;
         isTransfering = false;
+        stageTransfer = false;
     }
 
     public void startScoringCycle() {
@@ -316,26 +341,12 @@ public class RobotManager {
         follower.localizer.reset();
     }
 
-    public Pose getGoalPose(Pose robotPose) {
+    public Hive getNearestAllianceHive(Pose robotPose) {
         if (robotPose.y() > 70.75) {
-            if (robotAlliance == Alliance.RED) {
-                return Parameters.RED_AIM_GOAL_2;
-            } else if (robotAlliance == Alliance.BLUE) {
-                return Parameters.BLUE_AIM_GOAL_2;
-            }
+            return getUpperHive();
         } else {
-            if (robotAlliance == Alliance.RED) {
-                return Parameters.RED_AIM_GOAL_1;
-            } else if (robotAlliance == Alliance.BLUE) {
-                return Parameters.BLUE_AIM_GOAL_1;
-            }
+            return getLowerHive();
         }
-
-        return new Pose(0, 0);
-    }
-
-    public Pose getGoalPose() {
-        return getGoalPose(getPose());
     }
 
     public double getAngleToPose(Pose robotPose, Pose targetPose) {
@@ -343,7 +354,7 @@ public class RobotManager {
     }
 
     public double getAngleToGoal(Pose robotPose) {
-        return getAngleToPose(robotPose, getGoalPose(robotPose));
+        return getAngleToPose(robotPose, getNearestAllianceHive(robotPose).centerPosition);
     }
 
     public double getAngleToGoal() {
@@ -353,6 +364,14 @@ public class RobotManager {
     /// in radians
     public double getHeadingLockError() {
         return Math.abs(headingLockAngle - getPose().heading());
+    }
+
+    public boolean headingAtTarget() {
+        if (headingLockEnabled) {
+            return getHeadingLockError() < Parameters.ACCEPTABLE_HEADING_LOCK_ERROR;
+        }
+
+        return true;
     }
 
     public double getHeadingLockAngle() {
@@ -407,21 +426,23 @@ public class RobotManager {
         follower.setPose(newPose);
     }
 
-    /*
-     * This will get a copy of the inputted pose that will/won't be mirrored
-     * depending on the robot's alliance
+    /**
+     * @param pose The pose local to the RED field side.
+     * @return A pose that may be mirrored if the robot is driving on the BLUE alliance.
      */
     public Pose getFixedPose(Pose pose) {
         if (robotAlliance == Alliance.RED) {
-            return pose; // no mirroring is needed
+            return pose;
         } else {
-            return AutoUtils.getMirroredPose(pose);
+            return MathUtils.rotatePoseBy(pose, Math.PI);
         }
     }
 
-    /*
-     * This will get a copy of the inputted x, y and heading values that will/won't be mirrored
-     * depending on the robot's alliance
+    /**
+     * @param x The x local to the RED field side.
+     * @param y The y local to the RED field side.
+     * @param heading The heading local to the RED field side.
+     * @return A pose that may be mirrored if the robot is driving on the BLUE alliance.
      */
     public Pose getFixedPose(double x, double y, double heading) {
         Pose builtPose = new Pose(x, y, heading);
@@ -429,21 +450,23 @@ public class RobotManager {
         if (robotAlliance == Alliance.RED) {
             return builtPose; // no mirroring is needed
         } else {
-            return AutoUtils.getMirroredPose(builtPose);
+            return MathUtils.rotatePoseBy(builtPose, Math.PI);
         }
     }
 
-    /*
-     * This will get a copy of the inputted x and y values that will/won't be mirrored
-     * depending on the robot's alliance
+    /**
+     * @param x The x local to the RED field side.
+     * @param y The y local to the RED field side.
+     * @return A pose that may be mirrored if the robot is driving on the BLUE alliance.
      */
     public Pose getFixedPose(double x, double y) {
         return getFixedPose(x, y, 0);
     }
 
-    /*
-     * This will return a copy of the inputted heading value that could be mirrored if the robot
-     * is on blue.
+    /**
+     * @param heading The heading local to the RED field side.
+     * @param angleUnit The unit of heading.
+     * @return A heading that may be mirrored if the robot is driving on the BLUE alliance.
      */
     public double getFixedHeading(double heading, AngleUnit angleUnit) {
         double correctedHeading = heading;
@@ -455,20 +478,36 @@ public class RobotManager {
         if (robotAlliance == Alliance.RED) {
             return correctedHeading; // no mirroring is needed
         } else {
-            return AutoUtils.getMirroredPose(new Pose(0, 0, correctedHeading)).heading();
+            return correctedHeading + Math.PI;
         }
     }
 
-    /*
-     * This will return a copy of the inputted heading value (in degrees) that could be mirrored if the robot
-     * is on blue.
+    /**
+     * @param heading The heading (in degrees) local to the RED field side.
+     * @return A heading that may be mirrored if the robot is driving on the BLUE alliance.
      */
     public double getFixedHeading(double heading) {
         return getFixedHeading(heading, AngleUnit.DEGREES);
     }
 
+    /**
+     * @param x The x local to the RED field side.
+     * @return A x-coordinate that may be mirrored if the robot is driving on the BLUE alliance.
+     */
+    public double getFixedX(double x) {
+        return getFixedPose(x, 0).x();
+    }
+
+    /**
+     * @param y The x local to the RED field side.
+     * @return A y-coordinate that may be mirrored if the robot is driving on the BLUE alliance.
+     */
+    public double getFixedY(double y) {
+        return getFixedPose(0, y).y();
+    }
+
     public void runPathBlocking(Path path, boolean correctAfterFinished) {
-        follower.stop();
+        stopDriving();
 
         follower.holdEnd.set(correctAfterFinished);
         follower.follow(path);
@@ -519,10 +558,6 @@ public class RobotManager {
         }
     }
 
-    public void stopFollowing() {
-        follower.stop();
-    }
-
     public void setAutoSpeed(double speed) {
         Constants.foresightConfig.maxPathSpeed.set(speed);
     }
@@ -530,5 +565,68 @@ public class RobotManager {
     public void addPathTimeout(double timeout) {
         pathTimeoutApplied = true;
         pathTimeout = timeout;
+    }
+
+    public Hive getUpperHive() {
+        if (robotAlliance == Alliance.RED) {
+            return Hive.UPPER_LEFT;
+        } else {
+            return Hive.UPPER_RIGHT;
+        }
+    }
+
+    public Hive getLowerHive() {
+        if (robotAlliance == Alliance.RED) {
+            return Hive.LOWER_LEFT;
+        } else {
+            return Hive.LOWER_RIGHT;
+        }
+    }
+
+    public Flower getWallFlower() {
+        if (robotAlliance == Alliance.RED) {
+            return Flower.LEFT;
+        } else {
+            return Flower.RIGHT;
+        }
+    }
+
+    public Flower getUpperFlower() {
+        return Flower.UPPER;
+    }
+
+    public Flower getLowerFlower() {
+        return Flower.LOWER;
+    }
+
+    public void lowerBrake() {
+        brake.lower();
+    }
+
+    public void raiseBrake() {
+        brake.raise();
+    }
+
+    public void toggleBrake() {
+        brake.lower();
+    }
+
+    public boolean isBrakeLowered() {
+        return brake.isLowered();
+    }
+
+    public void stopDriving() {
+        if (follower.isBusy()) {
+            follower.stop();
+        }
+
+        if (manualDriveEnabled) {
+            if (headingLockEnabled) {
+                disableHeadingLock();
+            }
+            
+            setDrivePowers(0, 0, 0);
+            manualDriveEnabled = false;
+        }
     }
 }
