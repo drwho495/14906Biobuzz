@@ -66,7 +66,7 @@ public class ShooterTest extends LinearOpMode {
                     }
                 }
 
-                telemetry.addData("Shooter Velocity: ", MathUtils.ticksPerSecondToRPM(shooterVelocity));
+                telemetry.addData("Shooter Velocity: ", MathUtils.convertToRPM(shooterVelocity));
             } else {
                 telemetry.addLine("Press DPAD_UP to start the shooter.");
             }
@@ -89,11 +89,11 @@ public class ShooterTest extends LinearOpMode {
                 robot.setDriverAngle(robot.getPose().heading(), AngleUnit.RADIANS);
             }
 
-            packet.put("Shooter Velocity", MathUtils.ticksPerSecondToRPM(shooterVelocity));
-            packet.put("Target Shooter Velocity", MathUtils.ticksPerSecondToRPM(Parameters.SHOOTER_VELOCITY));
+            packet.put("Shooter Velocity", MathUtils.convertToRPM(shooterVelocity));
+            packet.put("Target Shooter Velocity", MathUtils.convertToRPM(Parameters.SHOOTER_VELOCITY));
 
             if (shooterCycleComplete) {
-                telemetry.addData("Scoring Cycle - Shooter Velocity Drop (RPM): ", MathUtils.ticksPerSecondToRPM(scoringCycleStartShooterVelocity) - MathUtils.ticksPerSecondToRPM(scoringCycleLowShooterVelocity));
+                telemetry.addData("Scoring Cycle - Shooter Velocity Drop (RPM): ", MathUtils.convertToRPM(scoringCycleStartShooterVelocity) - MathUtils.convertToRPM(scoringCycleLowShooterVelocity));
             }
 
             robot.update();

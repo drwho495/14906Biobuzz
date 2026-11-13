@@ -1,10 +1,13 @@
 package org.firstinspires.ftc.teamcode.Base;
 
+import com.pedropathing.algorithm.Algorithm;
+import com.pedropathing.algorithm.Foresight;
 import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.ManualDrive;
 import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
+import com.pedropathing.utils.Angle;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -12,8 +15,8 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.robotcore.external.Supplier;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.Base.Misc.Alliance;
-import org.firstinspires.ftc.teamcode.Base.Misc.Flower;
-import org.firstinspires.ftc.teamcode.Base.Misc.Hive;
+import org.firstinspires.ftc.teamcode.Base.Field.Flower;
+import org.firstinspires.ftc.teamcode.Base.Field.Hive;
 import org.firstinspires.ftc.teamcode.Base.Subsystems.BrakeSubsystem;
 import org.firstinspires.ftc.teamcode.Base.Utilities.MathUtils;
 import org.firstinspires.ftc.teamcode.Base.Subsystems.IntakeSubsystem;
@@ -29,6 +32,7 @@ public class RobotManager {
     private ShooterSubsystem shooter = new ShooterSubsystem();
     private BrakeSubsystem brake = new BrakeSubsystem();
     private Follower follower;
+    private Foresight foresight = null;
     private ElapsedTime cacheResetTimer = new ElapsedTime();
     private ElapsedTime transferCycleTimer = new ElapsedTime();
     private ElapsedTime transferStartDelayTimer = new ElapsedTime();
@@ -39,6 +43,8 @@ public class RobotManager {
     private boolean autoTransferPollenDuringScoreCycle = true;
     private boolean teleopDriveActive = false;
     private boolean headingLockEnabled = false;
+    private boolean aimToHiveEnabled = false;
+    private Hive hiveToAimTo = null;
     private boolean scoreWaitForShooterVelocity = false;
     private boolean scoreWaitForHeading = false;
     private boolean transferCycleTimerEnabled = false;
@@ -52,6 +58,7 @@ public class RobotManager {
     private boolean followerEndStalePathEnabled = true;
     private boolean pathTimeoutApplied = false;
     private boolean manualDriveEnabled = false;
+    private boolean subsystemsEnabled = true;
     private double pathTimeout = 0;
     private LinearOpMode opMode;
 
@@ -60,10 +67,12 @@ public class RobotManager {
         hardwareTable = new HardwareTable(opMode.hardwareMap);
         follower = Constants.create(opMode.hardwareMap);
 
-        setAlliance(
-                StaticStorage.storedAlliance,
-                false
-        );
+        Algorithm followerAlgorithm = follower.algorithm();
+        if (followerAlgorithm instanceof Foresight) {
+            foresight = (Foresight) followerAlgorithm;
+        }
+
+        setAlliance(StaticStorage.storedAlliance);
 
         shooter.initialize(hardwareTable);
         intake.initialize(hardwareTable);
@@ -140,18 +149,44 @@ public class RobotManager {
             cacheResetTimer.reset();
         }
 
+        if (aimToHiveEnabled && foresight != null) {
+            Pose robotPose = getPose();
+            double angleToHive = getAngleToPose(robotPose, hiveToAimTo.getCenterPose());
+
+            follower.manual(
+                    0,
+                    0,
+                    foresight.calculateHold(
+                            follower.drivetrain,
+                            robotPose.withHeading(angleToHive),
+                            follower.localizer.state(),
+                            true,
+                            0
+                    ).turn()
+            );
+        }
+
         follower.update();
-        shooter.update();
-        intake.update();
-        brake.update();
+
+        if (subsystemsEnabled) {
+            shooter.update();
+            intake.update();
+            brake.update();
+        }
     }
 
-    private void setAlliance(Alliance alliance, boolean cacheAllianceValue) {
+    public void enableSubsystems() {
+        subsystemsEnabled = true;
+    }
+
+    public void disableSubsystems() {
+        subsystemsEnabled = false;
+    }
+
+    private void setAlliance(Alliance alliance) {
         robotAlliance = alliance;
 
-        if (cacheAllianceValue) {
-            StaticStorage.storedAlliance = alliance;
-        }
+        StaticStorage.storedAlliance = alliance;
     }
 
     public boolean canShoot() {
@@ -163,7 +198,7 @@ public class RobotManager {
             return false;
         }
 
-        if (scoreWaitForHeading && headingLockEnabled && headingAtTarget()) {
+        if (scoreWaitForHeading && headingLockEnabled && !headingAtTarget()) {
             return false;
         }
 
@@ -185,15 +220,11 @@ public class RobotManager {
         transferOvercurrentTimer.reset();
     }
 
-    public void setAlliance(Alliance alliance) {
-        setAlliance(alliance, true);
-    }
-
     public Alliance getAlliance() {
         return robotAlliance;
     }
 
-    public void selectOtherAlliance() {
+    public void switchAlliance() {
         if (robotAlliance == Alliance.RED) {
             setAlliance(Alliance.BLUE);
         } else if (robotAlliance == Alliance.BLUE) {
@@ -216,30 +247,36 @@ public class RobotManager {
             teleopDriveActive = true;
         }
 
+        Pose robotPose = getPose();
         double fieldCentricHeading = 0;
 
         if (fieldCentric) {
-            fieldCentricHeading = follower.pose().heading() - driverAngleOffset;
+            fieldCentricHeading = robotPose.heading() - driverAngleOffset;
         }
 
-        DrivePowers drivePowers = ManualDrive.fieldCentric(
-                y,
-                x,
-                heading,
-                fieldCentricHeading
-        );
+        DrivePowers drivePowers;
 
-        if (headingLockEnabled) {
+        if (headingLockEnabled && foresight != null) {
             headingLockAngle = getAngleToGoal();
 
-            drivePowers = ManualDrive.headingLock(
-                    follower,
-                    Constants.getHeadingFeedbackController(),
-                    drivePowers,
-                    headingLockAngle,
-                    Constants.getHeadingBreakLinear(),
-                    Constants.getHeadingBreakQuadratic(),
-                    Parameters.HEADING_LOCK_STRENGTH
+            drivePowers = ManualDrive.fieldCentric(
+                    y,
+                    x,
+                    foresight.calculateHold(
+                            follower.drivetrain,
+                            robotPose.withHeading(headingLockAngle),
+                            follower.localizer.state(),
+                            true,
+                            0
+                    ).turn(),
+                    fieldCentricHeading
+            );
+        } else {
+            drivePowers = ManualDrive.fieldCentric(
+                    y,
+                    x,
+                    heading,
+                    fieldCentricHeading
             );
         }
 
@@ -319,6 +356,21 @@ public class RobotManager {
         headingLockEnabled = false;
     }
 
+    public void enableAimToHive() {
+        enableAimToHive(getNearestAllianceHive());
+    }
+
+    public void enableAimToHive(Hive hive) {
+        stopDriving();
+
+        aimToHiveEnabled = true;
+        hiveToAimTo = hive;
+    }
+
+    public void disableAimToHive() {
+        aimToHiveEnabled = false;
+    }
+
     public boolean isHeadingLockEnabled() {
         return headingLockEnabled;
     }
@@ -349,29 +401,53 @@ public class RobotManager {
         }
     }
 
+    public Hive getNearestAllianceHive() {
+        return getNearestAllianceHive(getPose());
+    }
+
+    public double getAngleToHive(Pose robotPose, Hive hive) {
+        return hive.getScoreHeading(robotPose);
+    }
+
+    public double getAngleToHive(Hive hive) {
+        return getAngleToHive(getPose(), hive);
+    }
+
+    public double getAngleToHive() {
+        Pose robotPose = getPose();
+
+        return getAngleToHive(robotPose, getNearestAllianceHive(robotPose));
+    }
+
     public double getAngleToPose(Pose robotPose, Pose targetPose) {
         return Math.atan2(targetPose.y() - robotPose.y(), targetPose.x() - robotPose.x()) + Math.PI;
     }
 
     public double getAngleToGoal(Pose robotPose) {
-        return getAngleToPose(robotPose, getNearestAllianceHive(robotPose).centerPosition);
+        return getAngleToPose(robotPose, getNearestAllianceHive(robotPose).getCenterPose());
     }
 
     public double getAngleToGoal() {
         return getAngleToGoal(getPose());
     }
 
-    /// in radians
-    public double getHeadingLockError() {
-        return Math.abs(headingLockAngle - getPose().heading());
+    /**
+     * @return The heading error, normalized to a range of -PI -> PI, in radians
+     */
+    public double getHeadingError() {
+        double error = 0;
+
+        if (manualDriveEnabled && headingLockEnabled) {
+            error = headingLockAngle - getPose().heading();
+        } else if (follower.isBusy()) {
+            error = follower.closestPose().heading() - getPose().heading();
+        }
+
+        return Angle.normalizeSigned(error);
     }
 
     public boolean headingAtTarget() {
-        if (headingLockEnabled) {
-            return getHeadingLockError() < Parameters.ACCEPTABLE_HEADING_LOCK_ERROR;
-        }
-
-        return true;
+        return Math.abs(getHeadingError()) < Parameters.ACCEPTABLE_HEADING_ERROR;
     }
 
     public double getHeadingLockAngle() {
@@ -434,7 +510,7 @@ public class RobotManager {
         if (robotAlliance == Alliance.RED) {
             return pose;
         } else {
-            return MathUtils.rotatePoseBy(pose, Math.PI);
+            return MathUtils.rotateAboutFieldCenter(pose, Math.PI);
         }
     }
 
@@ -450,7 +526,7 @@ public class RobotManager {
         if (robotAlliance == Alliance.RED) {
             return builtPose; // no mirroring is needed
         } else {
-            return MathUtils.rotatePoseBy(builtPose, Math.PI);
+            return MathUtils.rotateAboutFieldCenter(builtPose, Math.PI);
         }
     }
 
@@ -624,9 +700,31 @@ public class RobotManager {
             if (headingLockEnabled) {
                 disableHeadingLock();
             }
-            
+
             setDrivePowers(0, 0, 0);
             manualDriveEnabled = false;
         }
+
+        if (aimToHiveEnabled) {
+            aimToHiveEnabled = false;
+            follower.manual(0, 0, 0);
+        }
+    }
+
+    public boolean areSubsystemsEnabled() {
+        return subsystemsEnabled;
+    }
+
+    public void resetDriverAngle() {
+        if (robotAlliance == Alliance.RED) {
+            driverAngleOffset = 0;
+        } else {
+            driverAngleOffset = Math.PI;
+        }
+    }
+
+    public void waitForPosition(long timeout, double error) {
+        waitForCondition(() -> (!follower.isBusy()
+                || follower.distanceToEndpoint() <= error));
     }
 }

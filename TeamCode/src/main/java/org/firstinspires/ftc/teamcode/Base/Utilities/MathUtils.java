@@ -1,22 +1,21 @@
 package org.firstinspires.ftc.teamcode.Base.Utilities;
 
 import com.pedropathing.math.Pose;
-import com.pedropathing.math.Vector2D;
 
 import org.firstinspires.ftc.teamcode.Base.Parameters;
 
 public class MathUtils {
-    public static double ticksPerSecondToRPM(double tps) {
-        return (tps * 60) / 28;
+    public static double convertToRPM(double fromTicksPerSecond) {
+        return (fromTicksPerSecond * 60) / 28;
     }
 
-    public static Pose rotatePoseBy(Pose pose, double radians) {
+    public static Pose rotateAboutFieldCenter(Pose fromPose, double byRadians) {
         // rotate by field center
-        return pose.toVector2D()
+        return fromPose.toVector2D()
                 .minus(Parameters.FIELD_CENTER)
-                .rotate(radians)
+                .rotate(byRadians)
                 .plus(Parameters.FIELD_CENTER)
                 .toPose()
-                .withHeading(pose.heading() + radians);
+                .withHeading(fromPose.heading() + byRadians);
     }
 }

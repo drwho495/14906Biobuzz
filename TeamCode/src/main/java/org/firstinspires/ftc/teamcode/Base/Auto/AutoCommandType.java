@@ -4,4 +4,5 @@ public enum AutoCommandType {
     FLOWER_INTAKE,
     WALL_INTAKE,
     SCORE,
+    PARK
 }

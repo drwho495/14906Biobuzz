@@ -1,7 +1,6 @@
 package org.firstinspires.ftc.teamcode.OpModes;
 
 import com.pedropathing.math.Pose;
-import com.pedropathing.math.Vector2D;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -9,7 +8,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.Base.Parameters;
 import org.firstinspires.ftc.teamcode.Base.RobotManager;
-import org.firstinspires.ftc.teamcode.pedro.Constants;
+import org.firstinspires.ftc.teamcode.Base.Utilities.MathUtils;
 
 import java.util.concurrent.TimeUnit;
 
@@ -17,17 +16,40 @@ import java.util.concurrent.TimeUnit;
 public class MainTeleop extends LinearOpMode {
     private RobotManager robot = new RobotManager();
     private ElapsedTime loopTimer = new ElapsedTime();
+    private boolean printDebugInfo = false;
 
     @Override
     public void runOpMode() throws InterruptedException {
         robot.initialize(this);
         robot.enableTransferEcoMode();
         robot.enableAutoTransferPollenDuringScoreCycle();
+        robot.disableSubsystems();
+        robot.resetDriverAngle();
+
+        while (opModeInInit()) {
+            robot.update();
+        }
         
         waitForStart();
 
+        // do not remove!
+        robot.enableSubsystems();
+
         while (opModeIsActive()) {
             Pose robotPose = robot.getPose();
+
+            // do not remove!
+            if (!robot.areSubsystemsEnabled()) {
+                if (gamepad1.a || gamepad2.a) {
+                    robot.enableSubsystems();
+                }
+
+                telemetry.addLine("!!! SUBSYSTEMS ARE DISABLED !!!");
+                telemetry.addLine("!!! PRESS 'A' ON ANY GAMEPAD !!!");
+                telemetry.update();
+
+                continue;
+            }
 
             if (!robot.isBrakeLowered()) {
                 robot.setDrivePowers(
@@ -51,10 +73,11 @@ public class MainTeleop extends LinearOpMode {
 
             if (gamepad1.psWasPressed()) {
                 robot.setPose(Parameters.ORIGIN);
+                robot.resetDriverAngle();
             }
 
             if (gamepad1.dpadDownWasPressed()) {
-                robot.selectOtherAlliance();
+                robot.switchAlliance();
             }
 
             if (gamepad1.optionsWasPressed()) {
@@ -80,15 +103,26 @@ public class MainTeleop extends LinearOpMode {
                 robot.raiseBrake();
             }
 
+            if (gamepad2.optionsWasPressed()) {
+                printDebugInfo = !printDebugInfo;
+            }
+
+            telemetry.addData("Selected Alliance: ", robot.getAlliance());
+            telemetry.addData("Shooter Velocity (RPM): ", MathUtils.convertToRPM(robot.getShooterVelocity()));
+            telemetry.addLine();
             telemetry.addData("X: ", robotPose.x());
             telemetry.addData("Y: ", robotPose.y());
             telemetry.addData("Heading: ", Math.toDegrees(robotPose.heading()));
-            telemetry.addData("Heading Target: ", Math.toDegrees(robot.getHeadingLockAngle()));
-            telemetry.addData("Shooter Velocity: ", robot.getShooterVelocity());
-            telemetry.addData("Selected Alliance: ", robot.getAlliance());
-            telemetry.addData("Loop Time: ", loopTimer.time(TimeUnit.MILLISECONDS));
-            telemetry.addData("Flower Mechanism Down: ", robot.isFlowerMechanismDown());
-            telemetry.addData("Is Brake Engaged: ", robot.isBrakeLowered());
+
+            if (printDebugInfo) {
+                telemetry.addLine();
+                telemetry.addLine("Debug Information:");
+                telemetry.addData("Heading Target: ", Math.toDegrees(robot.getHeadingLockAngle()));
+                telemetry.addData("Heading at Target: ", robot.headingAtTarget());
+                telemetry.addData("Heading Error: ", Math.toDegrees(robot.getHeadingError()));
+                telemetry.addData("Loop Time: ", loopTimer.time(TimeUnit.MILLISECONDS));
+            }
+
             telemetry.update();
 
             if (gamepad1.a) {

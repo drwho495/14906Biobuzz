@@ -7,16 +7,12 @@ import com.pedropathing.algorithm.Foresight;
 import com.pedropathing.algorithm.ForesightConfig;
 import com.pedropathing.controllers.Controller;
 import com.pedropathing.follower.Follower;
-import com.pedropathing.localization.Localizer;
 import com.pedropathing.math.Matrix;
 import com.pedropathing.math.Vector2D;
 import com.pedropathing.revhub.drivetrains.Mecanum;
 import com.pedropathing.revhub.drivetrains.MecanumConfig;
-import com.pedropathing.revhub.localizers.OctoQuadConfig;
-import com.pedropathing.revhub.localizers.OctoQuadLocalizer;
 import com.pedropathing.revhub.localizers.PinpointConfig;
 import com.pedropathing.revhub.localizers.PinpointLocalizer;
-import com.qualcomm.hardware.digitalchickenlabs.OctoQuad;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -40,13 +36,12 @@ public class Constants {
     public static PinpointConfig localizerConfig = new PinpointConfig(c -> {
         c.name.set("pinpoint");
         c.podType.set(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
-        c.xPodOffset.set(3.241743553341843);
-        c.yPodOffset.set(-3.1670253483329236);
+        c.xPodOffset.set(64.0);
+        c.yPodOffset.set(-86.0);
         c.xPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
         c.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.REVERSED);
         c.globalDistanceUnit.set(DistanceUnit.INCH);
-        c.offsetUnits.set(DistanceUnit.INCH);
-        c.resetMode.set(PinpointLocalizer.ResetMode.RESET_AND_RECALIBRATE_IMU);
+        c.offsetUnits.set(DistanceUnit.MM);
     });
 
 //    public static OctoQuadConfig localizerConfig = new OctoQuadConfig(c -> {
@@ -91,6 +86,10 @@ public class Constants {
             }
     );
 
+    public static Controller getHeadingStaticFFController() {
+        return Constants.foresightConfig.headingStaticFF.get();
+    }
+
     public static Controller getHeadingFeedbackController() {
         return Constants.foresightConfig.headingFeedback.get();
     }
@@ -116,5 +115,9 @@ public class Constants {
                 new Mecanum(h, drivetrainConfig),
                 new Foresight(foresightConfig)
         );
+    }
+
+    public static double getHoldPointHeadingScalar() {
+        return Constants.foresightConfig.holdPointHeadingScaling.get();
     }
 }

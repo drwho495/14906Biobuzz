@@ -2,6 +2,8 @@ package org.firstinspires.ftc.teamcode.Base.Auto;
 
 import com.pedropathing.math.Pose;
 
+import org.firstinspires.ftc.teamcode.Base.Misc.Alliance;
+import org.firstinspires.ftc.teamcode.Base.Parameters;
 import org.firstinspires.ftc.teamcode.Base.RobotManager;
 
 import java.util.ArrayList;
@@ -13,7 +15,6 @@ public class AutoProgram {
     private final RobotManager robot;
     private ArrayList<AutoCommand> commands = new ArrayList<>();
     private AutoRunSide runSide;
-    private Pose startPose;
     private String name = "Unnamed Autonomous Program";
 
     public AutoProgram(RobotManager robot, String autoName) {
@@ -37,17 +38,32 @@ public class AutoProgram {
         return commands;
     }
 
-    public void setRunSide(AutoRunSide runSide) {
+    public AutoProgram setRunSide(AutoRunSide runSide) {
         this.runSide = runSide;
+
+        return this;
     }
 
-    public void setStartPose(Pose startPose) {
-        this.startPose = startPose;
+    public Pose getStartPose() {
+        if (runSide == AutoRunSide.GOAL) {
+            if (robot.getAlliance() == Alliance.RED) {
+                return Parameters.GOAL_RED_AUTO_START;
+            } else {
+                return Parameters.GOAL_BLUE_AUTO_START;
+            }
+        } else if (runSide == AutoRunSide.FLOWER) {
+            if (robot.getAlliance() == Alliance.RED) {
+                return Parameters.FLOWER_RED_AUTO_START;
+            } else {
+                return Parameters.FLOWER_BLUE_AUTO_START;
+            }
+        }
+
+        return Pose.zero();
     }
 
-    public void execute(AutoRunSide runSide, Pose startPose) {
+    public void execute(AutoRunSide runSide) {
         setRunSide(runSide);
-        setStartPose(startPose);
         execute();
     }
 
@@ -55,18 +71,24 @@ public class AutoProgram {
         this.commands = commands;
     }
 
-    public void addCommands(AutoCommand... commands) {
+    public AutoProgram addCommands(AutoCommand... commands) {
         this.commands.addAll(Arrays.asList(commands));
+
+        return this;
     }
 
-    public void addCommand(AutoCommand command) {
+    public AutoProgram addCommand(AutoCommand command) {
         this.commands.add(command);
+
+        return this;
     }
 
     public void execute() {
         AutoCommand currentCommand = null;
         AutoCommand lastCommand = null;
         AutoCommand nextCommand = null;
+
+        Pose startPose = getStartPose();
 
         for (int i = 0; i < commands.size(); i++) {
             currentCommand = commands.get(i);
