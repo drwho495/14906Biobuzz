@@ -2,8 +2,6 @@ package org.firstinspires.ftc.teamcode.Base.HardwareDevices;
 
 import static java.lang.Math.abs;
 
-import com.pedropathing.controllers.Controller;
-import com.pedropathing.controllers.PIDController;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -11,6 +9,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
+import org.firstinspires.ftc.teamcode.Base.Misc.VelocityController;
 import org.firstinspires.ftc.teamcode.Base.Parameters;
 
 import java.util.concurrent.TimeUnit;
@@ -30,12 +29,10 @@ public class ComplexMotor extends HardwareDevice {
     private double motorPower = 0;
     private double motorPowerTarget = 0; // updated with setPower
     private double lastMotorPower = 0;
-    private double lastMotorVelocity = 0;
-    private int lastMotorTickPosition = 0;
     private double motorVelocity = 0;
     private double currentVelocity;
     private double voltageTarget = 12.0;
-    private final PIDController velocityController = new PIDController(0, 0, 0);
+    private final VelocityController velocityController = new VelocityController();
     private ComplexVoltageSensor vSensor = null;
     private double currentLimit = 0;
     private double current = 0;
@@ -44,7 +41,7 @@ public class ComplexMotor extends HardwareDevice {
     private String deviceName = null;
     private boolean motorReversed = false;
     private ElapsedTime loopTimer = new ElapsedTime();
-    private boolean integratedPIDFEnabled = false;
+    private boolean integratedControllerEnabled = false;
 
     public ComplexMotor(String hwName, HardwareMap hardwareMap) {
         this.hardwareMap = hardwareMap;
@@ -84,23 +81,17 @@ public class ComplexMotor extends HardwareDevice {
         return currentVelocity;
     }
 
-    public void enableInteratedPIDF() {
-        integratedPIDFEnabled = true;
+    public void useInteratedController() {
+        integratedControllerEnabled = true;
     }
 
-    public void disableInteratedPIDF() {
-        integratedPIDFEnabled = false;
+    public void useCustomController() {
+        integratedControllerEnabled = false;
     }
 
-    public void setVelocityPIDFCoefficients(double p, double i, double d, double f) {
-        velocityController.kP = p;
-        velocityController.kI = i;
-        velocityController.kD = d;
+    public void setVelocityCoeffs(double kP, double kS, double kV, double kA) {
+        velocityController.set(kP, kS, kV, kA);
     }
-
-//    public double[] getVelocityPIDFCoefficients() {
-//        return velocityController.getCoefficients();
-//    }
 
     public void setMotorRunMode(DcMotor.RunMode runMode) {
         motorInterface.setMode(runMode);
@@ -124,23 +115,25 @@ public class ComplexMotor extends HardwareDevice {
     }
 
     public void update() {
-        int currentMotorTickPosition = 0;
+        long deltaTime = loopTimer.time(TimeUnit.MILLISECONDS);
 
         if (encoderMotor != null) {
             // get velocity in ticks per second
-            currentMotorTickPosition = encoderMotor.motorInterface.getCurrentPosition();
-            currentVelocity = (currentMotorTickPosition - lastMotorTickPosition) * (1000d / loopTimer.time(TimeUnit.MILLISECONDS));
+            currentVelocity = motorInterface.getVelocity();
         } else {
             currentVelocity = 0;
         }
 
         if (currentDriveMode == ComplexMotorDriveMode.VELOCITY) {
-            if (integratedPIDFEnabled) {
+            if (integratedControllerEnabled) {
                 motorInterface.setVelocity(motorVelocity);
             } else {
                 if (motorVelocity != 0) {
-//                    velocityController.setSetPoint(motorVelocity);
-                    motorPower = velocityController.calculate(currentVelocity, motorVelocity - currentVelocity);
+                    motorPower = velocityController.calculate(
+                            currentVelocity,
+                            motorVelocity,
+                            deltaTime
+                    );
 
                     if (vSensor != null) {
                         motorPower *= (Parameters.MOTOR_VOLTAGE_TARGET / vSensor.getVoltage());
@@ -158,8 +151,6 @@ public class ComplexMotor extends HardwareDevice {
         }
 
         lastMotorPower = motorPower;
-        lastMotorVelocity = motorVelocity;
-        lastMotorTickPosition = currentMotorTickPosition;
         updateCurrent = true;
 
         loopTimer.reset();

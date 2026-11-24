@@ -70,11 +70,11 @@ public class ComplexServo extends HardwareDevice {
         this.positionMultiplier = positionMultiplier;
     }
 
-    public void setPositionOffset(double positionOffset, AngleUnit angleUnit) {
+    public void setAngleOffset(double positionOffset, AngleUnit angleUnit) {
         this.positionOffset = this.toRadians(positionOffset, angleUnit);
     }
-    public void setPositionOffset(double positionOffset) {
-        setPositionOffset(positionOffset, AngleUnit.DEGREES);
+    public void setAngleOffset(double positionOffset) {
+        setAngleOffset(positionOffset, AngleUnit.DEGREES);
     }
 
 

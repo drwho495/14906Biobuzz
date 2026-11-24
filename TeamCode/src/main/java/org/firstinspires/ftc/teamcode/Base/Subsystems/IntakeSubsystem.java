@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode.Base.Subsystems;
 
-import com.qualcomm.robotcore.hardware.HardwareMap;
-
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.teamcode.Base.HardwareDevices.ComplexMotor;
@@ -19,7 +17,7 @@ public class IntakeSubsystem {
     private boolean transferOvercurrentSet = false;
     private boolean flowerMechanismDown = false;
 
-    public void initialize(HardwareMap hardwareMap, HardwareTable hardwareTable) {
+    public void initialize(HardwareTable hardwareTable) {
         intakeMotor1 = hardwareTable.createMotor("intakeMotor1");
         intakeMotor1.enableBrake();
         intakeMotor1.setReversed(false);
@@ -27,18 +25,18 @@ public class IntakeSubsystem {
         intakeMotor2 = hardwareTable.createMotor("intakeMotor2");
         intakeMotor2.enableFloat();
         intakeMotor2.enableEncoderDrive();
-        intakeMotor2.enableInteratedPIDF();
+        intakeMotor2.useInteratedController();
         intakeMotor2.setReversed(intakeMotor1.isReversed());
 
         flowerMechServo = new ComplexServo(
                 "flowerMechServo",
-                hardwareMap,
+                hardwareTable.getHardwareMap(),
                 0,
                 180,
                  AngleUnit.DEGREES
         );
         flowerMechServo.setInverted(true);
-        flowerMechServo.setPositionOffset(Parameters.FLOWER_MECHANISM_SERVO_OFFSET);
+        flowerMechServo.setAngleOffset(Parameters.FLOWER_MECHANISM_SERVO_OFFSET);
     }
 
     public void update() {

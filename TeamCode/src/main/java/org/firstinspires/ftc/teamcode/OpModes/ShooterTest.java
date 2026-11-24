@@ -3,18 +3,16 @@ package org.firstinspires.ftc.teamcode.OpModes;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.Utility;
-
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.teamcode.Base.Utilities.MathUtils;
 import org.firstinspires.ftc.teamcode.Base.Parameters;
 import org.firstinspires.ftc.teamcode.Base.RobotManager;
 
-@Utility(name = "Utility: Shooter Test", description = "Provides the user with tools and data to reliably test the shooter.")
+@Utility(name = "Shooter Test", description = "Provides the user with tools and data to reliably test the shooter.")
 public class ShooterTest extends LinearOpMode {
     RobotManager robot = new RobotManager();
     FtcDashboard dashboard;
-
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -26,14 +24,15 @@ public class ShooterTest extends LinearOpMode {
 
         TelemetryPacket packet = new TelemetryPacket();
 
-        double shooterVelocity = 0;
-
         boolean shooterCycleRunning = false;
         boolean shooterCycleComplete = false;
         double scoringCycleStartShooterVelocity = 0;
-        double scoringCycleEndShooterVelocity = 0;
+        double scoringCycleLowShooterVelocity = 0;
+        double shooterVelocity;
 
         while (opModeIsActive()) {
+            shooterVelocity = robot.getShooterVelocity();
+
             packet.clearLines();
 
             if (gamepad1.dpadUpWasPressed()) {
@@ -41,13 +40,11 @@ public class ShooterTest extends LinearOpMode {
             }
 
             if (robot.isShooterPoweredOn()) {
-                shooterVelocity = robot.getShooterVelocity();
-
                 if (gamepad1.rightBumperWasPressed() && !shooterCycleRunning) {
                     robot.startScoringCycle();
 
+                    scoringCycleLowShooterVelocity = shooterVelocity;
                     scoringCycleStartShooterVelocity = shooterVelocity;
-
                     shooterCycleRunning = true;
                     shooterCycleComplete = false;
                 }
@@ -56,14 +53,18 @@ public class ShooterTest extends LinearOpMode {
                     robot.stopScoringCycle();
                 }
 
-                if (shooterCycleRunning && !robot.isScoringCycleEnabled()) {
-                    scoringCycleEndShooterVelocity = shooterVelocity;
+                if (shooterCycleRunning) {
+                    if (shooterVelocity < scoringCycleLowShooterVelocity) {
+                        scoringCycleLowShooterVelocity = shooterVelocity;
+                    }
 
-                    shooterCycleRunning = false;
-                    shooterCycleComplete = true;
+                    if (!robot.isScoringCycleEnabled()) {
+                        shooterCycleRunning = false;
+                        shooterCycleComplete = true;
+                    }
                 }
 
-                telemetry.addData("Shooter Velocity: ", shooterVelocity);
+                telemetry.addData("Shooter Velocity: ", MathUtils.convertToRPM(shooterVelocity));
             } else {
                 telemetry.addLine("Press DPAD_UP to start the shooter.");
             }
@@ -86,12 +87,11 @@ public class ShooterTest extends LinearOpMode {
                 robot.setDriverAngle(robot.getPose().heading(), AngleUnit.RADIANS);
             }
 
-            packet.put("Shooter Velocity", shooterVelocity);
-            packet.put("Target Shooter Velocity", Parameters.SHOOTER_VELOCITY);
+            packet.put("Shooter Velocity", MathUtils.convertToRPM(shooterVelocity));
+            packet.put("Target Shooter Velocity", MathUtils.convertToRPM(Parameters.SHOOTER_VELOCITY));
 
             if (shooterCycleComplete) {
-                telemetry.addData("Scoring Cycle - Start Shooter Velocity: ", scoringCycleStartShooterVelocity);
-                telemetry.addData("Scoring Cycle - End Shooter Velocity: ", scoringCycleEndShooterVelocity);
+                telemetry.addData("Scoring Cycle - Shooter Velocity Drop (RPM): ", MathUtils.convertToRPM(scoringCycleStartShooterVelocity) - MathUtils.convertToRPM(scoringCycleLowShooterVelocity));
             }
 
             robot.update();

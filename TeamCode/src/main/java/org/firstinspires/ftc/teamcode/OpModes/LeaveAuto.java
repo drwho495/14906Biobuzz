@@ -5,12 +5,8 @@ import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-
 import static com.pedropathing.api.Paths.*;
-
 import org.firstinspires.ftc.teamcode.Base.RobotManager;
-
-import java.util.concurrent.TimeUnit;
 
 @Autonomous(name = "Leave Auto", preselectTeleOp = "0: Main Teleop")
 public class LeaveAuto extends LinearOpMode {
