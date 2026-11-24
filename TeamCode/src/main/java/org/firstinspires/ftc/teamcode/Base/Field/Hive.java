@@ -3,12 +3,14 @@ package org.firstinspires.ftc.teamcode.Base.Field;
 import com.acmerobotics.dashboard.config.Config;
 import com.pedropathing.math.Pose;
 
+import org.firstinspires.ftc.teamcode.Base.Parameters;
+
 @Config
 public class Hive {
     public double centerX;
     public double centerY;
-    public double scoreCircleRadius = 40.0;
-    public int direction = 1; // y-axis direction
+    public double scoreCircleRadius = Parameters.HIVE_SCORE_CIRCLE_RADIUS;
+    public int direction; // y-axis direction
 
     public Hive(double centerX, double centerY, int direction) {
         this.centerX = centerX;
@@ -36,6 +38,16 @@ public class Hive {
         return Math.atan2(centerY - fromScorePoint.y(), centerX - fromScorePoint.x()) + Math.PI;
     }
 
+    public double getFarScoreHeading(Pose fromScorePoint) {
+        Pose farAimPoint = getFarAimPoint();
+
+        return Math.atan2(farAimPoint.y() - fromScorePoint.y(), farAimPoint.x() - fromScorePoint.x()) + Math.PI;
+    }
+
+    public Pose getFarAimPoint() {
+        return new Pose(centerX, centerY - (Parameters.HIVE_FAR_AIM_OFFSET * direction));
+    }
+
     public double getScoreHeading(double fromX) {
         return getScoreHeading(getScorePoint(fromX));
     }
@@ -46,25 +58,25 @@ public class Hive {
 
     public static Hive UPPER_LEFT = new Hive(
             60,
-            92,
+            101,
             1
     );
 
     public static Hive UPPER_RIGHT = new Hive(
-            83.1,
-            92,
+            81,
+            99,
             1
     );
 
     public static Hive LOWER_LEFT = new Hive(
             60,
-            53.3,
+            44.5,
             -1
     );
 
     public static Hive LOWER_RIGHT = new Hive(
-            83.1,
-            53.3,
+            81,
+            44.5,
             -1
     );
 

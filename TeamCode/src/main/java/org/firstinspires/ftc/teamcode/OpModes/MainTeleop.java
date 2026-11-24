@@ -4,8 +4,8 @@ import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
-
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.teamcode.Base.ControlPolicy.ShooterControlPolicy;
 import org.firstinspires.ftc.teamcode.Base.Parameters;
 import org.firstinspires.ftc.teamcode.Base.RobotManager;
 import org.firstinspires.ftc.teamcode.Base.Utilities.MathUtils;
@@ -25,6 +25,7 @@ public class MainTeleop extends LinearOpMode {
         robot.enableAutoTransferPollenDuringScoreCycle();
         robot.disableSubsystems();
         robot.resetDriverAngle();
+        robot.setShooterControlPolicy(ShooterControlPolicy.AUTOMATIC);
 
         while (opModeInInit()) {
             robot.update();
@@ -72,7 +73,7 @@ public class MainTeleop extends LinearOpMode {
             }
 
             if (gamepad1.psWasPressed()) {
-                robot.setPose(Parameters.ORIGIN);
+                robot.setPose(robot.getLocalOrigin());
                 robot.resetDriverAngle();
             }
 
@@ -103,8 +104,14 @@ public class MainTeleop extends LinearOpMode {
                 robot.raiseBrake();
             }
 
-            if (gamepad2.optionsWasPressed()) {
+            if (gamepad1.dpadRightWasPressed()) {
                 printDebugInfo = !printDebugInfo;
+            }
+
+            if (gamepad2.dpadRightWasPressed()) {
+                robot.setShooterControlPolicy(ShooterControlPolicy.AUTOMATIC);
+            } else if (gamepad2.dpadLeftWasPressed()) {
+                robot.setShooterControlPolicy(ShooterControlPolicy.MANUAL);
             }
 
             telemetry.addData("Selected Alliance: ", robot.getAlliance());
@@ -113,10 +120,13 @@ public class MainTeleop extends LinearOpMode {
             telemetry.addData("X: ", robotPose.x());
             telemetry.addData("Y: ", robotPose.y());
             telemetry.addData("Heading: ", Math.toDegrees(robotPose.heading()));
+            telemetry.addLine();
+            telemetry.addData("Shooter Control Policy: ", robot.getShooterControlPolicy());
 
             if (printDebugInfo) {
                 telemetry.addLine();
                 telemetry.addLine("Debug Information:");
+                telemetry.addData("Distance to Hive: ", robot.getDistanceToHive(robotPose));
                 telemetry.addData("Heading Target: ", Math.toDegrees(robot.getHeadingLockAngle()));
                 telemetry.addData("Heading at Target: ", robot.headingAtTarget());
                 telemetry.addData("Heading Error: ", Math.toDegrees(robot.getHeadingError()));

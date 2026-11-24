@@ -4,7 +4,6 @@ import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.Utility;
-
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.Base.Utilities.MathUtils;
 import org.firstinspires.ftc.teamcode.Base.Parameters;
@@ -14,7 +13,6 @@ import org.firstinspires.ftc.teamcode.Base.RobotManager;
 public class ShooterTest extends LinearOpMode {
     RobotManager robot = new RobotManager();
     FtcDashboard dashboard;
-
 
     @Override
     public void runOpMode() throws InterruptedException {

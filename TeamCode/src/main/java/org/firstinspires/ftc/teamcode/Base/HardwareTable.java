@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode.Base;
 
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.Base.HardwareDevices.ComplexMotor;
 import org.firstinspires.ftc.teamcode.Base.HardwareDevices.ComplexServo;

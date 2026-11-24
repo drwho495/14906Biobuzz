@@ -1,16 +1,12 @@
 package org.firstinspires.ftc.teamcode.Base.Subsystems;
 
-//import com.bylazar.configurables.annotations.Configurable;
 import com.acmerobotics.dashboard.config.Config;
-import com.qualcomm.robotcore.hardware.HardwareMap;
-
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.Base.HardwareDevices.ComplexMotor;
 import org.firstinspires.ftc.teamcode.Base.HardwareDevices.ComplexServo;
 import org.firstinspires.ftc.teamcode.Base.HardwareTable;
 import org.firstinspires.ftc.teamcode.Base.Parameters;
 
-//@Configurable
 @Config
 public class ShooterSubsystem {
     private ComplexMotor shooterMotor1;
@@ -92,8 +88,8 @@ public class ShooterSubsystem {
         );
 
         if (poweredOn) {
-            shooterMotor1.setVelocity(Parameters.SHOOTER_VELOCITY);
-            shooterMotor2.setVelocity(Parameters.SHOOTER_VELOCITY);
+            shooterMotor1.setVelocity(motorVelocity);
+            shooterMotor2.setVelocity(motorVelocity);
         } else {
             shooterMotor1.setPower(0);
             shooterMotor2.setPower(0);

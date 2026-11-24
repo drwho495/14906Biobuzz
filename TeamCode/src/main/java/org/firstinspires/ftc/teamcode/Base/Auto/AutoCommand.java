@@ -1,7 +1,6 @@
 package org.firstinspires.ftc.teamcode.Base.Auto;
 
 import com.pedropathing.math.Pose;
-
 import org.firstinspires.ftc.teamcode.Base.RobotManager;
 
 public abstract class AutoCommand {

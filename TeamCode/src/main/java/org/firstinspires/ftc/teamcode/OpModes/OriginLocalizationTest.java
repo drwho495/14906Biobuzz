@@ -2,9 +2,7 @@ package org.firstinspires.ftc.teamcode.OpModes;
 
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.Utility;
-
 import org.firstinspires.ftc.teamcode.Base.Parameters;
 import org.firstinspires.ftc.teamcode.Base.RobotManager;
 
@@ -19,7 +17,7 @@ public class OriginLocalizationTest extends LinearOpMode {
 
         waitForStart();
 
-        robot.setPose(Parameters.ORIGIN);
+        robot.setPose(Parameters.ORIGIN_RED);
 
         while (opModeIsActive()) {
             Pose robotPose = robot.getPose();

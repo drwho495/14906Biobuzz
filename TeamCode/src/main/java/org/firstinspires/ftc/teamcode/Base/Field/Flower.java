@@ -32,12 +32,12 @@ public class Flower {
     );
 
     public static Flower UPPER = new Flower(
-            Vector2D.cartesian(49, 143),
+            Vector2D.cartesian(47, 144),
             Vector2D.unit((3*Math.PI)/2)
     );
 
     public static Flower LOWER = new Flower(
-            Vector2D.cartesian(94, 2.5),
+            Vector2D.cartesian(92, -1.5),
             Vector2D.unit(Math.PI / 2)
     );
 }

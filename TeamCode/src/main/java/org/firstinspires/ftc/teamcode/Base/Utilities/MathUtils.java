@@ -1,7 +1,6 @@
 package org.firstinspires.ftc.teamcode.Base.Utilities;
 
 import com.pedropathing.math.Pose;
-
 import org.firstinspires.ftc.teamcode.Base.Parameters;
 
 public class MathUtils {
