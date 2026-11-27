@@ -5,8 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.teamcode.Base.ControlPolicy.ShooterControlPolicy;
-import org.firstinspires.ftc.teamcode.Base.Parameters;
+import org.firstinspires.ftc.teamcode.Base.Policy.ShooterControlPolicy;
 import org.firstinspires.ftc.teamcode.Base.RobotManager;
 import org.firstinspires.ftc.teamcode.Base.Utilities.MathUtils;
 
@@ -25,7 +24,7 @@ public class MainTeleop extends LinearOpMode {
         robot.enableAutoTransferPollenDuringScoreCycle();
         robot.disableSubsystems();
         robot.resetDriverAngle();
-        robot.setShooterControlPolicy(ShooterControlPolicy.AUTOMATIC);
+        robot.setShooterControlPolicy(ShooterControlPolicy.AUTOMATIC_DYNAMIC);
 
         while (opModeInInit()) {
             robot.update();
@@ -77,9 +76,10 @@ public class MainTeleop extends LinearOpMode {
                 robot.resetDriverAngle();
             }
 
-            if (gamepad1.dpadDownWasPressed()) {
-                robot.switchAlliance();
-            }
+//            if (gamepad1.dpadDownWasPressed()) {
+//                robot.switchAlliance();
+//                robot.resetDriverAngle();
+//            }
 
             if (gamepad1.optionsWasPressed()) {
                 robot.setDriverAngle(robotPose.heading(), AngleUnit.RADIANS);
@@ -109,12 +109,12 @@ public class MainTeleop extends LinearOpMode {
             }
 
             if (gamepad2.dpadRightWasPressed()) {
-                robot.setShooterControlPolicy(ShooterControlPolicy.AUTOMATIC);
+                robot.setShooterControlPolicy(ShooterControlPolicy.AUTOMATIC_DYNAMIC);
             } else if (gamepad2.dpadLeftWasPressed()) {
-                robot.setShooterControlPolicy(ShooterControlPolicy.MANUAL);
+                robot.setShooterControlPolicy(ShooterControlPolicy.AUTOMATIC_STATIC);
             }
 
-            telemetry.addData("Selected Alliance: ", robot.getAlliance());
+//            telemetry.addData("Selected Alliance: ", robot.getAlliance());
             telemetry.addData("Shooter Velocity (RPM): ", MathUtils.convertToRPM(robot.getShooterVelocity()));
             telemetry.addLine();
             telemetry.addData("X: ", robotPose.x());

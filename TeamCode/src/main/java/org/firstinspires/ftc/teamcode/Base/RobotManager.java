@@ -15,7 +15,7 @@ import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Supplier;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.teamcode.Base.ControlPolicy.ShooterControlPolicy;
+import org.firstinspires.ftc.teamcode.Base.Policy.ShooterControlPolicy;
 import org.firstinspires.ftc.teamcode.Base.Field.LocalFlowerLocation;
 import org.firstinspires.ftc.teamcode.Base.Field.LocalHiveLocation;
 import org.firstinspires.ftc.teamcode.Base.Misc.Alliance;
@@ -45,6 +45,7 @@ public class RobotManager {
     private boolean stageTransfer = false;
     private boolean isTransfering = false;
     private double manualIntakePower = 0;
+    private double manualShooterVelocity = 0;
     private boolean scoreElementsCycleEnabled = false;
     private boolean autoTransferPollenDuringScoreCycle = true;
     private boolean teleopDriveActive = false;
@@ -67,7 +68,7 @@ public class RobotManager {
     private boolean subsystemsEnabled = true;
     private double pathTimeout = 0;
     private LinearOpMode opMode;
-    private ShooterControlPolicy shooterControlPolicy = ShooterControlPolicy.MANUAL;
+    private ShooterControlPolicy shooterControlPolicy = ShooterControlPolicy.AUTOMATIC_DYNAMIC;
     private PointsCurve shooterVelocityCurve = new PointsCurve();
 
     public void initialize(LinearOpMode thisOpMode) {
@@ -180,10 +181,19 @@ public class RobotManager {
             );
         }
 
-        if (shooterControlPolicy == ShooterControlPolicy.AUTOMATIC) {
-            updateShooterVelocityWithRegression(robotPose);
-        } else {
-            shooter.setTargetVelocity(Parameters.SHOOTER_VELOCITY);
+        if (shooterControlPolicy == ShooterControlPolicy.AUTOMATIC_DYNAMIC) {
+            shooter.setTargetVelocity(getShooterVelocityFromRegression(robotPose));
+        } else if (shooterControlPolicy == ShooterControlPolicy.AUTOMATIC_STATIC) {
+            shooter.setTargetVelocity(Parameters.STATIC_SHOOTER_VELOCITY);
+        } else if (shooterControlPolicy == ShooterControlPolicy.MANUAL) {
+            shooter.setTargetVelocity(manualShooterVelocity);
+        }
+
+        if (follower.following()) {
+            opMode.telemetry.addData("Robot X: ", robotPose.x());
+            opMode.telemetry.addData("Robot Y: ", robotPose.y());
+            opMode.telemetry.addData("Robot Heading: ", Math.toDegrees(robotPose.heading()));
+            opMode.telemetry.update();
         }
 
         follower.update();
@@ -434,11 +444,7 @@ public class RobotManager {
     }
 
     public double getAngleToHive(Pose robotPose, Hive hive) {
-        if (getDistanceToHive(robotPose, hive) > Parameters.HIVE_FAR_DISTANCE) {
-            return hive.getFarScoreHeading(robotPose);
-        } else {
-            return hive.getScoreHeading(robotPose);
-        }
+        return hive.getScoreHeading(robotPose);
     }
 
     public double getAngleToHive(Hive hive) {
@@ -621,11 +627,6 @@ public class RobotManager {
         while (follower.following() && !opMode.isStopRequested() && opMode.opModeIsActive()) {
             Pose robotPose = getPose();
 
-            opMode.telemetry.addData("Robot X: ", robotPose.x());
-            opMode.telemetry.addData("Robot Y: ", robotPose.y());
-            opMode.telemetry.addData("Robot Heading: ", Math.toDegrees(robotPose.heading()));
-            opMode.telemetry.update();
-
             if (pathTimeoutApplied && timer.time(TimeUnit.MILLISECONDS) >= pathTimeout) {
                 break;
             }
@@ -640,13 +641,13 @@ public class RobotManager {
         runPathBlocking(path, true);
     }
 
-    public void sleep(double time) {
+    public void sleep(long time) {
         ElapsedTime timer = new ElapsedTime();
 
         sleep(timer, time);
     }
 
-    public void sleep(ElapsedTime timer, double time) {
+    public void sleep(ElapsedTime timer, long time) {
         waitForCondition(() -> timer.time(TimeUnit.MILLISECONDS) >= time);
     }
 
@@ -759,7 +760,7 @@ public class RobotManager {
     }
 
     public double getDistanceToHive(Pose robotPose, Hive hive) {
-        return robotPose.distance(hive.getCenterPose());
+        return robotPose.distance(hive.getRegressionPose());
     }
 
     public double getDistanceToHive(Pose robotPose) {
@@ -770,31 +771,32 @@ public class RobotManager {
         return getDistanceToHive(getPose());
     }
 
-    public void updateShooterVelocityWithRegression(Pose robotPose, Hive hive) {
+    public double getShooterVelocityFromRegression(Pose robotPose, Hive hive) {
         double distanceToGoal = getDistanceToHive(robotPose, hive);
 
         if (shooterVelocityCurve.isBuilt()) {
-            opMode.telemetry.addData("y: ", shooterVelocityCurve.getY(
+            return shooterVelocityCurve.getY(
                     Range.clip(distanceToGoal, shooterVelocityCurve.getMinX(), shooterVelocityCurve.getMaxX())
-            ));
-            shooter.setTargetVelocity(
-                    shooterVelocityCurve.getY(
-                            Range.clip(distanceToGoal, shooterVelocityCurve.getMinX(), shooterVelocityCurve.getMaxX())
-                    )
             );
         }
+
+        return 0;
     }
 
-    public void updateShooterVelocityWithRegression(Pose robotPose) {
-        updateShooterVelocityWithRegression(robotPose, getNearestAllianceHive(robotPose));
+    public double getShooterVelocityFromRegression(Pose robotPose) {
+        return getShooterVelocityFromRegression(robotPose, getNearestAllianceHive(robotPose));
     }
 
-    public void updateShooterVelocityWithRegression() {
-        updateShooterVelocityWithRegression(getPose());
+    public double getShooterVelocityFromRegression() {
+        return getShooterVelocityFromRegression(getPose());
     }
 
     public void setShooterControlPolicy(ShooterControlPolicy shooterControlPolicy) {
         this.shooterControlPolicy = shooterControlPolicy;
+    }
+
+    public void setShooterVelocity(double velocity) {
+        manualShooterVelocity = velocity;
     }
 
     public ShooterControlPolicy getShooterControlPolicy() {
@@ -802,9 +804,9 @@ public class RobotManager {
     }
 
     public void updateShooterCurve() {
-        shooterVelocityCurve.addPoint(20, 1440);
-        shooterVelocityCurve.addPoint(30, 1425);
-        shooterVelocityCurve.addPoint(48, 1540);
+        shooterVelocityCurve.addPoint(48, 1405); // from wall
+        shooterVelocityCurve.addPoint(58, 1440);
+        shooterVelocityCurve.addPoint(66, 1520);
 
         shooterVelocityCurve.buildCurve();
     }

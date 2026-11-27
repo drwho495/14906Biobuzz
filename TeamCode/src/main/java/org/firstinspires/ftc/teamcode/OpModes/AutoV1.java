@@ -4,10 +4,13 @@ import com.pedropathing.algorithm.ForesightConfig;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.util.ElapsedTime;
+
 import org.firstinspires.ftc.teamcode.Base.Auto.AutoCommand;
 import org.firstinspires.ftc.teamcode.Base.Auto.AutoCommandRepository;
 import org.firstinspires.ftc.teamcode.Base.Auto.AutoProgram;
 import org.firstinspires.ftc.teamcode.Base.Auto.AutoRunSide;
+import org.firstinspires.ftc.teamcode.Base.Policy.ShooterControlPolicy;
 import org.firstinspires.ftc.teamcode.Base.Field.LocalFlowerLocation;
 import org.firstinspires.ftc.teamcode.Base.Field.LocalHiveLocation;
 import org.firstinspires.ftc.teamcode.Base.Misc.Alliance;
@@ -17,18 +20,21 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
-@Autonomous(name = "Auto V1", group = "0")
+@Autonomous(name = "Auto V1", group = "0", preselectTeleOp = "0: Main Teleop")
 public class AutoV1 extends LinearOpMode {
     private RobotManager robot = new RobotManager();
     private List<AutoProgram> allPrograms = new ArrayList<>();
     private AutoProgram selectedProgram;
+    private ElapsedTime autoTimer = new ElapsedTime();
     private int selectedProgramIndex;
     private boolean controlsLocked = false;
 
     @Override
     public void runOpMode() {
         robot.initialize(this);
+        robot.setShooterControlPolicy(ShooterControlPolicy.AUTOMATIC_DYNAMIC);
         robot.disableSubsystems();
 
         Constants.foresightConfig.maxPathSpeed.set(1.0);
@@ -70,28 +76,35 @@ public class AutoV1 extends LinearOpMode {
                     robot.setPose(getStartPose());
                 }
 
-                if (gamepad1.leftBumperWasPressed() || gamepad2.leftBumperWasPressed()) {
-                    robot.switchAlliance();
-                    robot.setPose(getStartPose());
-                }
+//                if (gamepad1.leftBumperWasPressed() || gamepad2.leftBumperWasPressed()) {
+//                    robot.switchAlliance();
+//                    robot.setPose(getStartPose());
+//                }
             }
 
             if (controlsLocked) {
 //                robot.setStatusLight(LEDColor.GREEN);
+
+                gamepad1.resetEdgeDetection();
+                gamepad2.resetEdgeDetection();
 
                 telemetry.addLine("Controls are locked.");
                 telemetry.addLine("Press 'Right Bumper' on any gamepad to unlock controls.");
             } else {
 //                robot.setStatusLight(LEDColor.RED);
 
-                telemetry.addLine("Controls are unlocked.");
+                telemetry.addLine("!!! CONTROLS ARE UNLOCKED !!!");
                 telemetry.addLine("Press 'Right Bumper' on any gamepad to lock the controls.");
+            }
+
+            if (!Constants.IsLocalizationReady()) {
+                telemetry.addLine();
+                telemetry.addLine("!!! LOCALIZATION NOT READY !!!");
             }
 
             Pose robotPose = robot.getPose();
 
             telemetry.addLine();
-            telemetry.addData("Alliance: ", robot.getAlliance());
             telemetry.addData("X: ", robotPose.x());
             telemetry.addData("Y: ", robotPose.y());
             telemetry.addData("Heading: ", robotPose.heading());
@@ -111,9 +124,18 @@ public class AutoV1 extends LinearOpMode {
 
         waitForStart();
 
+        autoTimer.reset();
+
         robot.enableSubsystems();
 
         selectedProgram.execute(getStartPose());
+
+        telemetry.addData("Auto Time: ", autoTimer.time(TimeUnit.MILLISECONDS));
+        telemetry.update();
+
+        while (opModeIsActive()) {
+            robot.update();
+        }
     }
 
     private Pose getStartPose() {
@@ -145,6 +167,30 @@ public class AutoV1 extends LinearOpMode {
                         .addCommand(new AutoCommandRepository.ScoreCommand(LocalHiveLocation.UPPER))
                         .addCommand(new AutoCommandRepository.FlowerIntakeCommand(LocalFlowerLocation.UPPER))
                         .addCommand(new AutoCommandRepository.ScoreCommand(LocalHiveLocation.UPPER))
+                        .addCommand(new AutoCommandRepository.ParkCommand())
+        );
+
+        allPrograms.add(
+                new AutoProgram(robot, "Goal Side: 2 Tip Safe")
+                        .setRunSide(AutoRunSide.GOAL)
+                        .addCommand(new AutoCommandRepository.ScoreCommand(LocalHiveLocation.LOWER))
+                        .addCommand(new AutoCommandRepository.WallIntakeCommand())
+                        .addCommand(new AutoCommandRepository.ScoreCommand(LocalHiveLocation.UPPER))
+                        .addCommand(new AutoCommandRepository.FlowerIntakeCommand(LocalFlowerLocation.UPPER))
+                        .addCommand(new AutoCommandRepository.ScoreCommand(LocalHiveLocation.UPPER))
+                        .addCommand(new AutoCommandRepository.FlowerIntakeCommand(LocalFlowerLocation.WALL))
+                        .addCommand(new AutoCommandRepository.ScoreCommand(LocalHiveLocation.UPPER, true))
+                        .addCommand(new AutoCommandRepository.ParkCommand())
+        );
+
+        allPrograms.add(
+                new AutoProgram(robot, "Goal Side: 3 Tip Partner")
+                        .setRunSide(AutoRunSide.GOAL)
+                        .addCommand(new AutoCommandRepository.ScoreCommand(LocalHiveLocation.LOWER))
+                        .addCommand(new AutoCommandRepository.WallIntakeCommand())
+                        .addCommand(new AutoCommandRepository.ScoreCommand(LocalHiveLocation.LOWER, 6000))
+                        .addCommand(new AutoCommandRepository.FlowerIntakeCommand(LocalFlowerLocation.WALL))
+                        .addCommand(new AutoCommandRepository.ScoreCommand(LocalHiveLocation.LOWER))
                         .addCommand(new AutoCommandRepository.ParkCommand())
         );
 
