@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode.Base.Utilities;
 
 import com.pedropathing.math.Pose;
+import com.pedropathing.math.Vector2D;
+
 import org.firstinspires.ftc.teamcode.Base.Parameters;
 
 public class MathUtils {
@@ -16,5 +18,13 @@ public class MathUtils {
                 .plus(Parameters.FIELD_CENTER)
                 .toPose()
                 .withHeading(fromPose.heading() + byRadians);
+    }
+
+    public static Pose distanceAlongDirection(Vector2D startVector, double distance, Vector2D direction) {
+        return startVector.plus(direction.normalized().times(distance)).toPose();
+    }
+
+    public static Pose distanceAlongDirection(Pose startPose, double distance, Vector2D direction) {
+        return distanceAlongDirection(startPose.toVector2D(), distance, direction);
     }
 }

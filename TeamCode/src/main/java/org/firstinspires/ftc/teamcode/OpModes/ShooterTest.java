@@ -88,7 +88,7 @@ public class ShooterTest extends LinearOpMode {
             }
 
             packet.put("Shooter Velocity", MathUtils.convertToRPM(shooterVelocity));
-            packet.put("Target Shooter Velocity", MathUtils.convertToRPM(Parameters.SHOOTER_VELOCITY));
+            packet.put("Target Shooter Velocity", MathUtils.convertToRPM(Parameters.STATIC_SHOOTER_VELOCITY));
 
             if (shooterCycleComplete) {
                 telemetry.addData("Scoring Cycle - Shooter Velocity Drop (RPM): ", MathUtils.convertToRPM(scoringCycleStartShooterVelocity) - MathUtils.convertToRPM(scoringCycleLowShooterVelocity));

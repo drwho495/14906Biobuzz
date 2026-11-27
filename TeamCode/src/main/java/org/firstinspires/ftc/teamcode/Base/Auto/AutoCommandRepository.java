@@ -10,12 +10,32 @@ import org.firstinspires.ftc.teamcode.Base.Field.Hive;
 import org.firstinspires.ftc.teamcode.Base.Field.LocalFlowerLocation;
 import org.firstinspires.ftc.teamcode.Base.Field.LocalHiveLocation;
 import org.firstinspires.ftc.teamcode.Base.Parameters;
+import org.firstinspires.ftc.teamcode.Base.Policy.ShooterControlPolicy;
 import org.firstinspires.ftc.teamcode.Base.RobotManager;
+import org.firstinspires.ftc.teamcode.Base.Utilities.MathUtils;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 public class AutoCommandRepository {
     public static class ScoreCommand extends AutoCommand {
         private LocalHiveLocation localHive;
+        private long scoreDelay = 0;
+        private boolean quickScore = false;
+
+        public ScoreCommand(LocalHiveLocation localHiveLocation, long scoreDelay, boolean quickScore) {
+            this.localHive = localHiveLocation;
+            this.scoreDelay = scoreDelay;
+            this.quickScore = quickScore;
+        }
+
+        public ScoreCommand(LocalHiveLocation localHiveLocation, long scoreDelay) {
+            this.localHive = localHiveLocation;
+            this.scoreDelay = scoreDelay;
+        }
+
+        public ScoreCommand(LocalHiveLocation localHiveLocation, boolean quickScore) {
+            this.localHive = localHiveLocation;
+            this.quickScore = quickScore;
+        }
 
         public ScoreCommand(LocalHiveLocation localHiveLocation) {
             this.localHive = localHiveLocation;
@@ -42,13 +62,23 @@ public class AutoCommandRepository {
             robot.setIntakePower(0);
 
             Pose robotPose = robot.getPose();
-            Pose scorePoint = hive.getScorePoint();
-            double scoreHeading = hive.getScoreHeading(scorePoint);
+            Pose scorePose;
 
-            robot.updateShooterVelocityWithRegression(scorePoint, hive);
+            if (quickScore && localHive == LocalHiveLocation.UPPER) {
+                scorePose = robot.getFixedPose(20, 100);
+            } else {
+                scorePose = hive.getScorePoint();
+            }
+
+            double scoreHeading = hive.getScoreHeading(scorePose);
+
+            if (robot.getShooterControlPolicy() == ShooterControlPolicy.MANUAL) {
+                robot.setShooterVelocity(robot.getShooterVelocityFromRegression(scorePose, hive));
+            }
 
             if (
                     localHive == LocalHiveLocation.UPPER
+                            && !quickScore
                             && robot.getFixedPose(robotPose).y() <= Parameters.FIELD_CENTER.y()
             ) {
 //                robot.runPathBlocking(
@@ -56,7 +86,7 @@ public class AutoCommandRepository {
 //                                robotPose,
 //                                robot.getFixedPose(35, 91.495),
 //                                robot.getFixedPose(35, 113.545, 0),
-//                                scorePoint.withY(scorePoint.y() - robot.fixParameterDirection(10))
+//                                scorePose.withY(scorePose.y() - robot.fixParameterDirection(10))
 //                        ).linear(robotPose.heading(), scoreHeading)
 //                );
 
@@ -64,7 +94,9 @@ public class AutoCommandRepository {
                         line(
                                 robotPose,
                                 robot.getFixedPose(33, 20)
-                        ).linear(robotPose.heading(), scoreHeading)
+                        )
+                                .linear(robotPose.heading(), scoreHeading)
+                                .with(Constants.foresightConfig.maxPathSpeed.at(.8))
                 );
 
                 robotPose = robot.getPose();
@@ -72,9 +104,9 @@ public class AutoCommandRepository {
                 robot.runPathBlocking(
                         curve(
                                 robotPose,
-                                robot.getFixedPose(35, 91.495),
-                                robot.getFixedPose(35, 106),
-                                scorePoint.withY(scorePoint.y() - robot.fixParameterDirection(20)).withX(scorePoint.x() - robot.fixParameterDirection(3))
+                                robot.getFixedPose(35, 95),
+                                robot.getFixedPose(35, 112),
+                                scorePose.withY(scorePose.y() - robot.fixParameterDirection(20)).withX(scorePose.x() - robot.fixParameterDirection(3))
                         ).constant(scoreHeading)
                 );
 
@@ -84,21 +116,22 @@ public class AutoCommandRepository {
                 robot.runPathBlocking(
                         line(
                                 robotPose,
-                                scorePoint
+                                scorePose
                         )
                                 .constant(scoreHeading)
                                 .with(Constants.foresightConfig.maxPathSpeed.at(0.6))
                 );
             } else if (
                     localHive == LocalHiveLocation.UPPER
+                            && !quickScore
                             && lastCommand != null
                             && lastCommand.getType() == AutoCommandType.FLOWER_INTAKE
             ) {
                 robot.runPathBlocking(
                         curve(
                                 robotPose,
-                                scorePoint.withY(scorePoint.y() - robot.fixParameterDirection(20)).withX(scorePoint.x() + robot.fixParameterDirection(1)),
-                                scorePoint
+                                scorePose.withY(scorePose.y() - robot.fixParameterDirection(10)).withX(scorePose.x() + robot.fixParameterDirection(1)),
+                                scorePose
                         ).linear(robotPose.heading(), scoreHeading)
                 );
 
@@ -107,7 +140,7 @@ public class AutoCommandRepository {
                 robot.runPathBlocking(
                         line(
                                 robotPose,
-                                scorePoint
+                                scorePose
                         )
                                 .constant(scoreHeading)
                                 .with(Constants.foresightConfig.maxPathSpeed.at(0.6))
@@ -116,7 +149,7 @@ public class AutoCommandRepository {
                 robot.runPathBlocking(
                         line(
                                 robotPose,
-                                scorePoint
+                                scorePose
                         )
                                 .linear(robotPose.heading(), scoreHeading)
                 );
@@ -124,6 +157,10 @@ public class AutoCommandRepository {
 
             robot.waitForPosition(2000, .5);
             robot.enableAimToHive(hive);
+
+            if (scoreDelay != 0) {
+                robot.sleep(scoreDelay);
+            }
 
             robot.waitForShooter(2000);
             robot.startScoringCycle(false, true);
@@ -146,9 +183,11 @@ public class AutoCommandRepository {
 
         @Override
         public void execute(RobotManager robot, Pose startPose, AutoRunSide runSide, AutoCommand lastCommand, AutoCommand nextCommand) {
-            double wallX = 8.5;
-            double wallY = 14;
-            double wallRetractY = 18.5;
+            double wallX = 13;
+            double wallY = 12.5;
+            double wallRetractY = 14.5;
+            double intakeHeading = 265;
+            long dwellTime = 250;
 
             robot.setIntakePower(1);
 
@@ -159,7 +198,7 @@ public class AutoCommandRepository {
                             robotPose.withX(robotPose.x() - robot.fixParameterDirection(15)).withY(robot.getFixedParameter(17)),
                             robot.getFixedPose(wallX, 21)
                     )
-                            .constant(robot.getFixedHeading(270))
+                            .constant(robot.getFixedHeading(intakeHeading))
             );
 
             for (int i = 0; i < 3; i++) {
@@ -168,19 +207,34 @@ public class AutoCommandRepository {
                 robot.runPathBlocking(
                         line(
                                 robotPose,
-                                robot.getFixedPose(wallX, wallY)
+                                robot.getFixedPose(wallX, wallY + .5)
                         )
-                                .constant(robot.getFixedHeading(270))
-                                .with(Constants.foresightConfig.maxPathSpeed.at(.6))
+                                .constant(robot.getFixedHeading(intakeHeading))
+                                .with(Constants.foresightConfig.maxPathSpeed.at(.6)),
+                        false
                 );
 
+                robot.addPathTimeout(250);
+                robot.runPathBlocking(
+                        line(
+                                robotPose,
+                                robot.getFixedPose(wallX, wallY)
+                        )
+                                .linear(robotPose.heading(), robot.getFixedHeading(270))
+                                .with(Constants.foresightConfig.maxPathSpeed.at(.6)),
+                        false
+                );
+
+                robot.sleep(dwellTime);
+
                 robotPose = robot.getPose();
+                robot.addPathTimeout(1000);
                 robot.runPathBlocking(
                         line(
                                 robotPose,
                                 robot.getFixedPose(wallX, wallRetractY)
                         )
-                                .constant(robot.getFixedHeading(270))
+                                .constant(robot.getFixedHeading(intakeHeading))
                                 .with(Constants.foresightConfig.maxPathSpeed.at(.6))
                 );
             }
@@ -208,11 +262,12 @@ public class AutoCommandRepository {
         public void execute(RobotManager robot, Pose startPose, AutoRunSide runSide, AutoCommand lastCommand, AutoCommand nextCommand) {
             Flower flower = robot.getFlower(localFlower);
 
-            Pose robotPose = robot.getPose();
-            Pose backAwayPose = flower.getPoseFromCenter(Parameters.FLOWER_BACK_AWAY_DISTANCE);
-            Pose intakePose = flower.getPoseFromCenter(Parameters.FLOWER_INTAKE_DISTANCE);
+            double headingOffset = Math.toRadians(-10);
+            double headingPose = flower.getIntakeHeading() + headingOffset;
 
-            double headingPose = flower.getIntakeHeading();
+            Pose robotPose = robot.getPose();
+            Pose intakePose = flower.getPoseFromCenter(Parameters.FLOWER_INTAKE_DISTANCE, headingOffset);
+            Pose backAwayPose = MathUtils.distanceAlongDirection(intakePose, Parameters.FLOWER_BACK_AWAY_DISTANCE, flower.direction);
 
 //            robot.runPathBlocking(
 //                    curve(
@@ -222,13 +277,24 @@ public class AutoCommandRepository {
 //                    ).linear(robotPose.heading(), headingPose)
 //            );
 
-            robot.runPathBlocking(
-                    curve(
-                            robotPose,
-                            backAwayPose.withY(backAwayPose.y() - robot.fixParameterDirection(10)),
-                            backAwayPose
-                    ).linear(robotPose.heading(), headingPose)
-            );
+            if (localFlower == LocalFlowerLocation.WALL && lastCommand.getType() == AutoCommandType.SCORE && ((ScoreCommand) lastCommand).localHive == LocalHiveLocation.UPPER) {
+                robot.runPathBlocking(
+                        curve(
+                                robotPose,
+                                new Pose(robotPose.x(), robotPose.y() - robot.fixParameterDirection(30)),
+                                new Pose(robot.getFixedParameter(10), robotPose.y() - robot.fixParameterDirection(20)),
+                                backAwayPose
+                        ).linear(robotPose.heading(), headingPose)
+                );
+            } else {
+                robot.runPathBlocking(
+                        curve(
+                                robotPose,
+                                backAwayPose.withY(backAwayPose.y() - robot.fixParameterDirection(10)),
+                                backAwayPose
+                        ).linear(robotPose.heading(), headingPose)
+                );
+            }
 
             if (!robot.isFlowerMechanismDown()) {
                 robot.lowerFlowerMechanism();
@@ -244,7 +310,7 @@ public class AutoCommandRepository {
                             intakePose
                     )
                             .constant(headingPose)
-                            .with(Constants.foresightConfig.maxPathSpeed.at(.5))
+                            .with(Constants.foresightConfig.maxPathSpeed.at(.4))
                     , false
             );
 
@@ -297,29 +363,36 @@ public class AutoCommandRepository {
             double parkX = 13;
             double decelerationScale = .0001;
 
+            double parkHeading;
+
+            if (robotPose.heading() > 0 && robotPose.heading() < Math.PI) {
+                parkHeading = robot.getFixedHeading(90);
+            } else {
+                parkHeading = robot.getFixedHeading(270);
+                parkX = 17; // TODO: fix localization issue
+            }
+
             if (robot.getFixedPose(robotPose).y() <= Parameters.FIELD_CENTER.y()) {
                 robot.runPathBlocking(
                         curve(
                                 robotPose,
-                                robot.getFixedPose(robotPose.x() + 15, 80),
-                                robot.getFixedPose(parkX, 90)
+                                new Pose(robotPose.x() - robot.fixParameterDirection(20), robot.getFixedParameter(30)),
+                                robot.getFixedPose(parkX, 96)
                         )
-                                .linear(robotPose.heading(), robot.getFixedHeading(90))
+                                .linear(robotPose.heading(), parkHeading)
                                 .with(Constants.foresightConfig.maxDecelerationScale.at(decelerationScale))
                 );
             } else {
                 robot.runPathBlocking(
                         curve(
                                 robotPose,
-                                robot.getFixedPose(robotPose.x() - 15, 110),
+                                new Pose(robotPose.x() - robot.fixParameterDirection(15), robot.getFixedParameter(110)),
                                 robot.getFixedPose(parkX, 120)
                         )
-                                .linear(robotPose.heading(), robot.getFixedHeading(90))
+                                .linear(robotPose.heading(), parkHeading)
                                 .with(Constants.foresightConfig.maxDecelerationScale.at(decelerationScale))
                 );
             }
-
-            robot.sleep(5000);
         }
     }
 }
